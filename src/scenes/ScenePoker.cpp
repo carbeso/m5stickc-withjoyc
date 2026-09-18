@@ -130,13 +130,15 @@ void ScenePoker::update(InputManager& input, AudioManager& audio, LedManager& le
             _needsRedraw = true;
         }
 
-        // 啟動洗牌：必須是明確按鍵、上推或甩動脈衝觸發，絕不因常態推持誤觸
-        if (input.joyPushedUp || input.btnAPressed || input.joyBtnPressed || input.isShaken) {
+        // 啟動洗牌：推/拉搖桿、按鍵或甩動脈衝觸發
+        if (input.joyPushedUp || input.joyPulledDown || input.btnAPressed || input.joyBtnPressed || input.isShaken) {
             startShuffle(!input.isShaken, audio, led);
         }
     } else {
         // 洗牌持續進行中
         uint32_t now = millis();
+        uint32_t elapsed = now - _animStartTime;
+
         if (now - _lastTickTime > 45) {
             _lastTickTime = now;
             _tempAnimCard.suit = random(0, _includeJokers ? 5 : 4);
@@ -145,22 +147,24 @@ void ScenePoker::update(InputManager& input, AudioManager& audio, LedManager& le
             _needsRedraw = true;
         }
 
+        // 持續洗牌判斷：搖桿向上推或向下拉著，或持續按著 Button A
+        bool isHoldingJoy = (abs(input.joyY) > 35 || input.isBtnAHeld);
+
         // 停止判定：
-        // 1. 若為按鍵/搖桿觸發：放開按鍵/搖桿且超過 250ms -> 停牌開牌
-        // 2. 若為體感甩動觸發：手部不再激烈甩動且超過 350ms -> 停牌開牌
-        // 3. 絕對超時防呆：若持續超過 3500ms 強制開牌
+        // 1. 若為搖桿長推/長拉操作：只要還拉著/推著就持續洗牌；放開後 350ms 停牌開牌！
+        // 2. 若為短按或體感甩動：至少持續洗牌 2500ms (2.5 秒) 再定格開牌，不再太快停止！
         bool readyToStop = false;
         if (_triggeredByJoy) {
-            bool stillHolding = (input.isJoyPushedUp || input.isJoyBtnHeld || input.isBtnAHeld);
-            if (!stillHolding && (now - _animStartTime > 250)) {
+            if (!isHoldingJoy && (elapsed > 400)) {
                 readyToStop = true;
             }
         } else {
-            if (!input.isActivelyShaking && (now - _animStartTime > 350)) {
+            // 體感甩動：手部脫離激烈甩動且已洗牌滿 2500ms
+            if (!input.isActivelyShaking && (elapsed >= 2500)) {
                 readyToStop = true;
             }
         }
-        if (now - _animStartTime > 3500) readyToStop = true;
+        if (elapsed > 30000) readyToStop = true; // 30 秒安全超時
 
         if (readyToStop) {
             finalizeDraw(audio, led);

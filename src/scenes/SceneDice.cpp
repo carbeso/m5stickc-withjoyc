@@ -81,19 +81,17 @@ void SceneDice::update(InputManager& input, AudioManager& audio, LedManager& led
             _needsRedraw = true;
         }
 
-        // 啟動擲骰：必須是明確按鍵/甩動脈衝觸發，絕不因常態推持誤觸
-        if (input.btnAPressed || input.joyBtnPressed || input.isShaken) {
-            rollDice(!input.isShaken, audio, led);
+        // 啟動擲骰：必須是明確按鍵/搖桿/甩動脈衝觸發，絕不因常態推持誤觸
+        if (input.btnAPressed || input.joyBtnPressed || input.joyPulledDown || input.isShaken) {
+            rollDice(true, audio, led);
         }
     } else {
         // 滾動進行中
         uint32_t now = millis();
         uint32_t elapsed = now - _rollStartTime;
 
-        bool stillHolding = (input.isJoyPulledDown || input.isJoyBtnHeld || input.isBtnAHeld);
-
-        // 漸入動力學：壓著按鈕/搖桿時加速
-        uint32_t interval = (stillHolding && elapsed < 400) ? map(elapsed, 0, 400, 85, 35) : 35;
+        // 翻滾節奏：前 2 秒極速翻滾 (40ms)，後 0.8 秒自然減速 (45~110ms)，總長約 3 秒！
+        uint32_t interval = (elapsed < 2000) ? 40 : map(elapsed, 2000, 2800, 45, 110);
 
         if (now - _lastTickTime > interval) {
             _lastTickTime = now;
@@ -104,23 +102,8 @@ void SceneDice::update(InputManager& input, AudioManager& audio, LedManager& led
             _needsRedraw = true;
         }
 
-        // 停止判定：
-        // (A) 若由按鈕/搖桿觸發：放開且滾動滿 1200ms 即煞停定格 (確保有一兩秒厚重感)
-        // (B) 若由體感甩動觸發：手腕不再激烈甩動且滾動滿 1200ms 即定格
-        // (C) 絕對超時防呆：若持續超過 15000ms 強制煞停
-        bool readyToStop = false;
-        if (_triggeredByJoy) {
-            if (!stillHolding && (elapsed > 1200)) {
-                readyToStop = true;
-            }
-        } else {
-            if (!input.isActivelyShaking && (elapsed > 1200)) {
-                readyToStop = true;
-            }
-        }
-        if (elapsed > 15000) readyToStop = true;
-
-        if (readyToStop) {
+        // 滿 2800ms (約 3 秒) 停定定格，跟搖晃一樣，無需長拉長按！
+        if (elapsed >= 2800) {
             _isRolling = false;
             for (uint8_t i = 0; i < _diceCount; i++) {
                 _diceResults[i] = random(1, DIE_FACES[_dieTypeIdx] + 1);

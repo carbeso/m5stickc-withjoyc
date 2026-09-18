@@ -92,7 +92,8 @@ void SceneSlot::update(InputManager& input, AudioManager& audio, LedManager& led
     }
 
     bool anySpinning = (_colSpinning[0] || _colSpinning[1] || _colSpinning[2]);
-    bool stillHolding = (input.isJoyPulledDown || input.isJoyBtnHeld || input.isBtnAHeld);
+    // 持拉判定：明確以搖桿下拉 (joyY > 35) 或持續按著 Button A 判定，杜絕中心鍵假性死鎖
+    bool isPullingLever = (input.joyY > 35 || input.isBtnAHeld || input.isActivelyShaking);
 
     if (!anySpinning) {
         // 啟動拉桿：必須是明確按鍵、下拉或甩動脈衝觸發，絕不因常態推持誤觸
@@ -119,10 +120,8 @@ void SceneSlot::update(InputManager& input, AudioManager& audio, LedManager& led
         _needsRedraw = true;
 
         // 煞車時序控制：
-        // 1. 只要玩家持續拉著搖桿或持續甩動，且未達 15 秒安全超時，三輪維持全速飛轉！
-        bool isHoldingOrShaking = (stillHolding || input.isActivelyShaking);
-
-        if (isHoldingOrShaking && elapsed < 15000) {
+        // 1. 只要玩家持續向下拉著搖桿 (joyY > 35) 或甩動，且未達 30 秒安全超時，三輪維持全速飛轉！
+        if (isPullingLever && elapsed < 30000) {
             _releaseTime = 0; // 重置放開計時
             _colSpinning[0] = true;
             _colSpinning[1] = true;
@@ -135,19 +134,19 @@ void SceneSlot::update(InputManager& input, AudioManager& audio, LedManager& led
 
             uint32_t timeSinceRelease = now - _releaseTime;
 
-            // 依序煞車：必須同時滿足「最短轉動時間」與「放開後間隔」，確保有一兩秒以上扎實體驗
-            // 第 1 輪煞停：放開後滿 350ms 且總時間滿 1400ms
-            if (_colSpinning[0] && timeSinceRelease > 350 && elapsed > 1400) {
+            // 依序煞車：保證至少旋轉滿 1600ms，放開後依序煞停，總時長約 3 秒！
+            // 第 1 輪煞停：放開後滿 400ms 且總時間滿 1600ms
+            if (_colSpinning[0] && timeSinceRelease > 400 && elapsed > 1600) {
                 _colSpinning[0] = false;
                 audio.playClick();
             }
-            // 第 2 輪煞停：第 1 輪停後且放開後滿 750ms，總時間滿 1800ms
-            if (_colSpinning[1] && !_colSpinning[0] && timeSinceRelease > 750 && elapsed > 1800) {
+            // 第 2 輪煞停：第 1 輪停後且放開後滿 850ms，總時間滿 2050ms
+            if (_colSpinning[1] && !_colSpinning[0] && timeSinceRelease > 850 && elapsed > 2050) {
                 _colSpinning[1] = false;
                 audio.playClick();
             }
-            // 第 3 輪煞停：第 2 輪停後且放開後滿 1200ms，總時間滿 2250ms -> 開獎！
-            if (_colSpinning[2] && !_colSpinning[1] && timeSinceRelease > 1200 && elapsed > 2250) {
+            // 第 3 輪煞停：第 2 輪停後且放開後滿 1350ms，總時間滿 2550ms -> 開獎！
+            if (_colSpinning[2] && !_colSpinning[1] && timeSinceRelease > 1350 && elapsed > 2550) {
                 _colSpinning[2] = false;
                 _releaseTime = 0;
                 checkWinLines(audio, led);

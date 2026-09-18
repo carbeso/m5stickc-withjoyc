@@ -76,8 +76,14 @@ void SceneEightBall::update(InputManager& input, AudioManager& audio, LedManager
         uint32_t now = millis();
         uint32_t elapsed = now - _revealStartTime;
 
-        // 輕快冒泡 450ms 後直接開籤，無需長拉持續旋轉！
-        if (elapsed > 450) {
+        // 冒泡期間每 250ms 定時發出擬真水聲
+        if (now - _lastBubbleTime > 250) {
+            _lastBubbleTime = now;
+            audio.playBubble();
+        }
+
+        // 持續 3000ms (3 秒) 翻騰冒泡後再開籤解答！
+        if (elapsed >= 3000) {
             _isRevealing = false;
             _isRevealed = true;
 

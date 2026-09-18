@@ -44,14 +44,14 @@ void SceneRoulette::update(InputManager& input, AudioManager& audio, LedManager&
         return;
     }
 
-    bool stillHolding = (input.isJoyPulledDown || input.isJoyBtnHeld || input.isBtnAHeld);
+    bool isPullingJoy = (input.joyY > 35 || input.isBtnAHeld || input.isActivelyShaking);
 
     if (!_isSpinning) {
         // 啟動旋轉：必須是明確按鍵、下拉或甩動脈衝觸發，絕不因常態推持誤觸
         if (input.joyPulledDown || input.btnAPressed || input.joyBtnPressed || input.isShaken) {
             _isSpinning = true;
             _spinStartTime = millis();
-            _stripSpeed = input.isShaken ? 24.0f : 8.0f; // 搖桿從初速加速，甩動則立刻極速
+            _stripSpeed = input.isShaken ? 24.0f : 12.0f;
             audio.playDiceRoll();
             led.setRainbowMode(true);
         }
@@ -71,17 +71,15 @@ void SceneRoulette::update(InputManager& input, AudioManager& audio, LedManager&
         }
 
         // 動力學狀態處理：
-        bool isHoldingOrShaking = (stillHolding || input.isActivelyShaking);
-
-        if (isHoldingOrShaking && elapsed < 15000) {
-            // 玩家持續拉著搖桿或甩動：加速至極速 25.0f 並持續全速旋轉！
+        if (isPullingJoy && elapsed < 30000) {
+            // 玩家持續拉著搖桿 (joyY > 35) 或甩動：加速至極速 25.0f 並持續全速飛轉！
             if (_stripSpeed < 25.0f) _stripSpeed += 1.5f;
             else _stripSpeed = 25.0f;
-        } else if (elapsed < 1400) {
-            // 即使短拉放開，最短前 1.4 秒維持高速巡航，確保有一兩秒的厚重期待感
-            if (_stripSpeed < 24.0f) _stripSpeed += 1.5f;
+        } else if (elapsed < 2000) {
+            // 即使短撥一下放開，前 2.0 秒依然維持高速巡航，接著滑行減速，總長約 3 秒！
+            if (_stripSpeed < 24.0f) _stripSpeed += 1.2f;
         } else {
-            // 玩家已放開搖桿且已滿最短旋轉時間：自然滑行減速 (Ease-Out Deceleration)
+            // 玩家已放開搖桿且已滿 2 秒：自然滑行減速 (Ease-Out Deceleration)
             _stripSpeed *= 0.945f;
 
             // 停定判定
