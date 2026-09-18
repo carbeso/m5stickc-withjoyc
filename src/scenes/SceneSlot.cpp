@@ -1,6 +1,6 @@
 /**
  * @file SceneSlot.cpp
- * @brief 3x3 搖桿下拉角子老虎機實作：完整 7 款圖案幾何繪製、中獎局部無閃爍高亮
+ * @brief 3x3 搖桿下拉角子老虎機實作：移除金錢/賭博元素、7款生動幾何圖示與防閃爍設計
  */
 
 #include "scenes/SceneSlot.h"
@@ -14,7 +14,7 @@ const int GAP_Y = 4;
 
 SceneSlot::SceneSlot()
     : _spinStartTime(0), _hasWon(false), _winLinesMask(0),
-      _score(100), _needsRedraw(true), _lastTickTime(0), _flashTimer(0) {
+      _score(0), _needsRedraw(true), _lastTickTime(0), _flashTimer(0) {
     for (int c = 0; c < 3; c++) {
         _colSpinning[c] = false;
         _colOffset[c] = 0;
@@ -76,9 +76,8 @@ void SceneSlot::checkWinLines(AudioManager& audio, LedManager& led) {
 
     if (_winLinesMask > 0) {
         _hasWon = true;
-        _score += 50;
         audio.playJackpot();
-        led.flash(255, 215, 0, 8, 60);
+        led.flash(255, 180, 0, 8, 60); // 暖金爆閃 (避開純白三色分離)
     } else {
         _hasWon = false;
         audio.playClick();
@@ -95,7 +94,6 @@ void SceneSlot::update(InputManager& input, AudioManager& audio, LedManager& led
 
     bool anySpinning = (_colSpinning[0] || _colSpinning[1] || _colSpinning[2]);
 
-    // 搖桿向下拉桿 (joyY > 0)、按鍵 A、中心鍵或晃動
     if (!anySpinning && (input.joyPulledDown || input.btnAPressed || input.joyBtnPressed || input.isShaken)) {
         pullLever(audio, led);
     }
@@ -108,15 +106,15 @@ void SceneSlot::update(InputManager& input, AudioManager& audio, LedManager& led
             audio.playTick();
         }
 
-        if (elapsed > 600 && _colSpinning[0]) {
+        if (elapsed > 550 && _colSpinning[0]) {
             _colSpinning[0] = false;
             audio.playClick();
         }
-        if (elapsed > 1000 && _colSpinning[1]) {
+        if (elapsed > 900 && _colSpinning[1]) {
             _colSpinning[1] = false;
             audio.playClick();
         }
-        if (elapsed > 1400 && _colSpinning[2]) {
+        if (elapsed > 1250 && _colSpinning[2]) {
             _colSpinning[2] = false;
             checkWinLines(audio, led);
         }
@@ -131,7 +129,6 @@ void SceneSlot::update(InputManager& input, AudioManager& audio, LedManager& led
         _needsRedraw = true;
     }
 
-    // 中獎閃爍：局部更新
     if (_hasWon) {
         _flashTimer++;
         if (_flashTimer % 8 == 0) {
@@ -140,9 +137,6 @@ void SceneSlot::update(InputManager& input, AudioManager& audio, LedManager& led
     }
 }
 
-/**
- * @brief 繪製老虎機 7 種專屬生動圖案 (Icon)
- */
 void SceneSlot::drawSymbol(int x, int y, uint8_t sym, bool highlight) {
     uint16_t bg = highlight ? COLOR_GOLD : 0x18C3;
     uint16_t border = highlight ? TFT_WHITE : 0x39E7;
@@ -153,44 +147,44 @@ void SceneSlot::drawSymbol(int x, int y, uint8_t sym, bool highlight) {
     M5.Lcd.drawRoundRect(x, y, CELL_W, CELL_H, 4, border);
 
     switch (sym) {
-        case SYM_SEVEN: // 7️⃣ Lucky 7 (鮮紅大 7)
+        case SYM_SEVEN:
             M5.Lcd.setTextColor(highlight ? TFT_BLACK : TFT_RED, bg);
             M5.Lcd.drawCentreString("7", cx, cy - 14, 4);
             break;
 
-        case SYM_BAR: // 金磚 BAR
+        case SYM_BAR:
             M5.Lcd.drawRoundRect(cx - 14, cy - 8, 28, 16, 2, highlight ? TFT_BLACK : COLOR_GOLD);
             M5.Lcd.setTextColor(highlight ? TFT_BLACK : TFT_WHITE, bg);
             M5.Lcd.drawCentreString("BAR", cx, cy - 5, 1);
             break;
 
-        case SYM_BELL: // 🔔 金鈴 (金黃鐘形)
+        case SYM_BELL:
             M5.Lcd.fillCircle(cx, cy - 6, 4, highlight ? TFT_BLACK : COLOR_GOLD);
             M5.Lcd.fillTriangle(cx - 9, cy + 6, cx + 9, cy + 6, cx, cy - 6, highlight ? TFT_BLACK : COLOR_GOLD);
             M5.Lcd.fillCircle(cx, cy + 8, 3, highlight ? TFT_BLACK : COLOR_GOLD);
             break;
 
-        case SYM_CHERRY: // 🍒 雙櫻桃 (紅圓 + 綠枝)
+        case SYM_CHERRY:
             M5.Lcd.fillCircle(cx - 5, cy + 5, 5, TFT_RED);
             M5.Lcd.fillCircle(cx + 6, cy + 3, 5, TFT_RED);
             M5.Lcd.drawLine(cx - 5, cy + 1, cx, cy - 8, TFT_GREEN);
             M5.Lcd.drawLine(cx + 6, cy - 1, cx, cy - 8, TFT_GREEN);
             break;
 
-        case SYM_LEMON: // 🍋 檸檬 (鮮黃橢圓)
+        case SYM_LEMON:
             M5.Lcd.fillCircle(cx, cy, 8, TFT_YELLOW);
             M5.Lcd.drawPixel(cx - 9, cy, TFT_GREEN);
             M5.Lcd.drawPixel(cx + 9, cy, TFT_GREEN);
             break;
 
-        case SYM_STAR: // ⭐ 金星 (五角金星)
+        case SYM_STAR:
             M5.Lcd.fillCircle(cx, cy, 6, highlight ? TFT_BLACK : COLOR_CYAN);
             M5.Lcd.fillTriangle(cx, cy - 10, cx - 4, cy - 2, cx + 4, cy - 2, highlight ? TFT_BLACK : COLOR_CYAN);
             M5.Lcd.fillTriangle(cx - 10, cy, cx - 2, cy - 4, cx - 2, cy + 4, highlight ? TFT_BLACK : COLOR_CYAN);
             M5.Lcd.fillTriangle(cx + 10, cy, cx + 2, cy - 4, cx + 2, cy + 4, highlight ? TFT_BLACK : COLOR_CYAN);
             break;
 
-        case SYM_CLOVER: // 🍀 幸運草 (四葉綠圓)
+        case SYM_CLOVER:
             M5.Lcd.fillCircle(cx - 4, cy - 4, 4, TFT_GREEN);
             M5.Lcd.fillCircle(cx + 4, cy - 4, 4, TFT_GREEN);
             M5.Lcd.fillCircle(cx - 4, cy + 4, 4, TFT_GREEN);
@@ -204,17 +198,14 @@ void SceneSlot::draw() {
     if (!_needsRedraw) return;
     _needsRedraw = false;
 
-    // 局部重繪：頂部狀態列
+    // 頂部狀態列：刪除金錢/賭博元素，只純粹顯示休閒拉霸名稱
     M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 28, 0x18C3);
     M5.Lcd.setTextColor(COLOR_GOLD, 0x18C3);
     M5.Lcd.drawString("SLOT 3x3", 8, 6, 2);
+    M5.Lcd.setTextColor(COLOR_CYAN, 0x18C3);
+    M5.Lcd.drawRightString("8 LINES", SCREEN_WIDTH - 8, 8, 1);
 
-    char scoreStr[16];
-    snprintf(scoreStr, sizeof(scoreStr), "$%d", _score);
-    M5.Lcd.setTextColor(TFT_WHITE, 0x18C3);
-    M5.Lcd.drawRightString(scoreStr, SCREEN_WIDTH - 8, 6, 2);
-
-    // 繪製 3x3 九宮格單元 (局部刷新，完全不閃爍)
+    // 繪製 3x3 九宮格 (局部重繪，無整面閃爍)
     bool flashState = (_flashTimer / 8) % 2 == 0;
     for (int c = 0; c < 3; c++) {
         for (int r = 0; r < 3; r++) {
@@ -233,7 +224,7 @@ void SceneSlot::draw() {
         }
     }
 
-    // 底部狀態 (局部清空重繪)
+    // 底部狀態 (局部重繪，絕不整面閃黑)
     M5.Lcd.fillRect(0, 172, SCREEN_WIDTH, 68, TFT_BLACK);
     M5.Lcd.drawFastHLine(8, 172, SCREEN_WIDTH - 16, 0x39E7);
 
@@ -242,10 +233,10 @@ void SceneSlot::draw() {
         M5.Lcd.setTextColor(COLOR_CYAN, TFT_BLACK);
         M5.Lcd.drawCentreString("SPINNING...", SCREEN_WIDTH / 2, 184, 2);
     } else if (_hasWon) {
-        M5.Lcd.setTextColor(TFT_GREEN, TFT_BLACK);
-        M5.Lcd.drawCentreString("*** WINNER! ***", SCREEN_WIDTH / 2, 180, 2);
         M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
-        M5.Lcd.drawCentreString("+50 COINS!", SCREEN_WIDTH / 2, 202, 2);
+        M5.Lcd.drawCentreString("*** JACKPOT! ***", SCREEN_WIDTH / 2, 182, 2);
+        M5.Lcd.setTextColor(TFT_GREEN, TFT_BLACK);
+        M5.Lcd.drawCentreString("MATCH 3 WIN!", SCREEN_WIDTH / 2, 202, 2);
     } else {
         M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
         M5.Lcd.drawCentreString("PULL JOY DOWN", SCREEN_WIDTH / 2, 184, 2);

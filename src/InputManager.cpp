@@ -1,6 +1,6 @@
 /**
  * @file InputManager.cpp
- * @brief 輸入管理器實作：修正搖桿 Y 軸方向、整合陀螺儀靈敏甩動偵測與邊緣事件
+ * @brief 輸入管理器實作：修正搖桿方向、調降體感搖晃靈敏度至合理用力甩動門檻
  */
 
 #include "InputManager.h"
@@ -20,7 +20,7 @@ bool InputManager::begin() {
     bool ret = _joyc.begin(&Wire, MINI_JOYC_ADDR, HAT_I2C_SDA, HAT_I2C_SCL, 400000L);
     _prevJoyBtn = _joyc.getButtonStatus();
 
-    // 2. 明確初始化 MPU6886 IMU 姿態感測器 (避免未初始化導致讀值為 0)
+    // 2. 初始化 MPU6886 姿態感測器
     M5.Imu.Init();
 
     return ret;
@@ -40,10 +40,9 @@ void InputManager::update() {
 
     // 2. 讀取 MiniJoyC 搖桿數值 (-128 ~ 127)
     joyX = (int8_t)_joyc.getPOSValue(POS_X, _8bit);
-    // 修正上下方向：硬體上推與下拉取反，符合直立頂部握持直覺
+    // 修正上下方向取反
     joyY = -((int8_t)_joyc.getPOSValue(POS_Y, _8bit));
 
-    // 濾除中心死區
     if (abs(joyX) < JOY_DEADZONE) joyX = 0;
     if (abs(joyY) < JOY_DEADZONE) joyY = 0;
 
@@ -54,8 +53,7 @@ void InputManager::update() {
     }
     _prevJoyBtn = currentJoyBtn;
 
-    // 4. 搖桿方向邊緣偵測 (下拉拉桿、推上、推左、推右)
-    // joyY > 0 為向下拉桿，joyY < 0 為向上推
+    // 4. 搖桿方向邊緣偵測
     bool currPulledDown = (joyY > JOY_TRIGGER_PULL);
     if (currPulledDown && !_prevPulledDown) {
         joyPulledDown = true;
@@ -85,7 +83,7 @@ void InputManager::update() {
         btnAPressed = true;
     }
 
-    // 6. 側面 Button B 長短按偵測 (長按 500ms 返回主選單，短按由場景自行處置如靜音)
+    // 6. 側面 Button B 長短按偵測
     if (M5.BtnB.wasPressed()) {
         _btnBPressedTime = millis();
         _btnBHandled = false;
@@ -98,11 +96,11 @@ void InputManager::update() {
     }
     if (M5.BtnB.wasReleased()) {
         if (!_btnBHandled) {
-            btnBPressed = true; // 短按放開
+            btnBPressed = true;
         }
     }
 
-    // 7. MPU6886 體感劇烈甩動偵測 (同時採樣角速度 Gyro 與加速度 Accel)
+    // 7. MPU6886 體感甩動偵測 (調高至「用力甩動」門檻，避免普通手持誤觸)
     float gx = 0, gy = 0, gz = 0;
     float ax = 0, ay = 0, az = 0;
     M5.Imu.getGyroData(&gx, &gy, &gz);
@@ -114,8 +112,8 @@ void InputManager::update() {
     _lastAy = ay;
     _lastAz = az;
 
-    // 只要角速度 > 120 deg/s 或加速度差 > 1.2G 即判定為甩動 (大幅提升靈敏度)
-    if ((gyroMag > 120.0f || deltaA > 1.2f) && (millis() - _lastShakeTime > 500)) {
+    // 門檻提高：角速度 > 320 deg/s 或瞬時加速度差 > 2.6G，冷卻 800ms
+    if ((gyroMag > 320.0f || deltaA > 2.6f) && (millis() - _lastShakeTime > 800)) {
         isShaken = true;
         _lastShakeTime = millis();
     }

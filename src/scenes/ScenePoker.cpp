@@ -1,6 +1,6 @@
 /**
  * @file ScenePoker.cpp
- * @brief 極簡大字幸運撲克實作：真實花色圖案繪製、修復 JQK 字母顯示與無閃爍體驗
+ * @brief 極簡大字幸運撲克實作：使用 Font 4 放大修復 JQK 字母顯示、避免三色分離白光
  */
 
 #include "scenes/ScenePoker.h"
@@ -60,11 +60,11 @@ void ScenePoker::drawCard(AudioManager& audio, LedManager& led) {
     audio.playCardDraw();
 
     if (_currentCard.suit == 1 || _currentCard.suit == 2) {
-        led.setColor(255, 0, 0);
+        led.setColor(255, 0, 0); // 鮮紅 (單色，無混光色差)
     } else if (_currentCard.suit == 0 || _currentCard.suit == 3) {
-        led.setColor(220, 220, 255);
+        led.setColor(0, 200, 255); // 冰河青藍 (綠+藍雙色，消除白光三色分離)
     } else {
-        led.flash(255, 0, 255, 3, 70);
+        led.flash(220, 0, 255, 3, 70); // 鬼牌紫彩
     }
 
     _needsRedraw = true;
@@ -84,7 +84,6 @@ void ScenePoker::update(InputManager& input, AudioManager& audio, LedManager& le
         _needsRedraw = true;
     }
 
-    // 向上推搖桿、按鍵 A、中心鍵或晃動抽牌
     if (input.joyPushedUp || input.joyBtnPressed || input.btnAPressed || input.isShaken) {
         drawCard(audio, led);
     }
@@ -95,45 +94,37 @@ void ScenePoker::update(InputManager& input, AudioManager& audio, LedManager& le
  */
 static void drawPokerSuit(int cx, int cy, uint8_t suit, uint16_t color) {
     switch (suit) {
-        case 0: // ♠ 黑桃 (Spade)
-            // 上尖三角
-            M5.Lcd.fillTriangle(cx, cy - 18, cx - 14, cy + 2, cx + 14, cy + 2, color);
-            // 左右兩個小圓弧
-            M5.Lcd.fillCircle(cx - 7, cy + 1, 8, color);
-            M5.Lcd.fillCircle(cx + 7, cy + 1, 8, color);
-            // 底部立足
-            M5.Lcd.fillTriangle(cx, cy - 2, cx - 6, cy + 16, cx + 6, cy + 16, color);
+        case 0: // ♠ 黑桃
+            M5.Lcd.fillTriangle(cx, cy - 20, cx - 15, cy + 2, cx + 15, cy + 2, color);
+            M5.Lcd.fillCircle(cx - 8, cy + 2, 8, color);
+            M5.Lcd.fillCircle(cx + 8, cy + 2, 8, color);
+            M5.Lcd.fillTriangle(cx, cy, cx - 5, cy + 18, cx + 5, cy + 18, color);
             break;
 
-        case 1: // ♥ 紅心 (Heart)
-            // 左右兩瓣圓弧
+        case 1: // ♥ 紅心
             M5.Lcd.fillCircle(cx - 8, cy - 6, 9, color);
             M5.Lcd.fillCircle(cx + 8, cy - 6, 9, color);
-            // 下方尖三角
-            M5.Lcd.fillTriangle(cx - 16, cy - 4, cx + 16, cy - 4, cx, cy + 16, color);
+            M5.Lcd.fillTriangle(cx - 16, cy - 4, cx + 16, cy - 4, cx, cy + 18, color);
             break;
 
-        case 2: // ♦ 方塊 (Diamond)
-            // 菱形
-            M5.Lcd.fillTriangle(cx, cy - 18, cx - 14, cy, cx + 14, cy, color);
-            M5.Lcd.fillTriangle(cx, cy + 18, cx - 14, cy, cx + 14, cy, color);
+        case 2: // ♦ 方塊
+            M5.Lcd.fillTriangle(cx, cy - 19, cx - 15, cy, cx + 15, cy, color);
+            M5.Lcd.fillTriangle(cx, cy + 19, cx - 15, cy, cx + 15, cy, color);
             break;
 
-        case 3: // ♣ 梅花 (Club)
-            // 上、左、右三個小圓
+        case 3: // ♣ 梅花
             M5.Lcd.fillCircle(cx, cy - 9, 8, color);
             M5.Lcd.fillCircle(cx - 9, cy + 2, 8, color);
             M5.Lcd.fillCircle(cx + 9, cy + 2, 8, color);
-            // 底部立足
-            M5.Lcd.fillTriangle(cx, cy - 2, cx - 6, cy + 16, cx + 6, cy + 16, color);
+            M5.Lcd.fillTriangle(cx, cy, cx - 5, cy + 18, cx + 5, cy + 18, color);
             break;
 
-        case 4: // JOKER 星芒圖案
+        case 4: // JOKER
             M5.Lcd.fillCircle(cx, cy, 14, color);
-            M5.Lcd.fillTriangle(cx, cy - 18, cx - 6, cy, cx + 6, cy, TFT_WHITE);
-            M5.Lcd.fillTriangle(cx, cy + 18, cx - 6, cy, cx + 6, cy, TFT_WHITE);
-            M5.Lcd.fillTriangle(cx - 18, cy, cx, cy - 6, cx, cy + 6, TFT_WHITE);
-            M5.Lcd.fillTriangle(cx + 18, cy, cx, cy - 6, cx, cy + 6, TFT_WHITE);
+            M5.Lcd.fillTriangle(cx, cy - 18, cx - 5, cy, cx + 5, cy, TFT_WHITE);
+            M5.Lcd.fillTriangle(cx, cy + 18, cx - 5, cy, cx + 5, cy, TFT_WHITE);
+            M5.Lcd.fillTriangle(cx - 18, cy, cx, cy - 5, cx, cy + 5, TFT_WHITE);
+            M5.Lcd.fillTriangle(cx + 18, cy, cx, cy - 5, cx, cy + 5, TFT_WHITE);
             break;
     }
 }
@@ -142,7 +133,7 @@ void ScenePoker::draw() {
     if (!_needsRedraw) return;
     _needsRedraw = false;
 
-    // 局部重繪：頂部靜態列
+    // 頂部狀態列
     M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 28, 0x18C3);
     M5.Lcd.setTextColor(TFT_WHITE, 0x18C3);
     M5.Lcd.drawString("POKER", 8, 6, 2);
@@ -154,32 +145,33 @@ void ScenePoker::draw() {
     M5.Lcd.setTextColor(COLOR_GOLD, 0x18C3);
     M5.Lcd.drawRightString(infoStr, SCREEN_WIDTH - 6, 8, 1);
 
-    // 清除中央動態牌面區 (Y: 30 ~ 194)
-    M5.Lcd.fillRect(0, 30, SCREEN_WIDTH, 164, TFT_BLACK);
+    // 清除中央牌面區
+    M5.Lcd.fillRect(0, 28, SCREEN_WIDTH, 168, TFT_BLACK);
 
     if (!_isCardRevealed) {
         M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        M5.Lcd.drawCentreString("[ READY ]", SCREEN_WIDTH / 2, 90, 4);
+        M5.Lcd.drawCentreString("[ READY ]", SCREEN_WIDTH / 2, 85, 4);
         M5.Lcd.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-        M5.Lcd.drawCentreString("Push UP / Press", SCREEN_WIDTH / 2, 125, 2);
+        M5.Lcd.drawCentreString("Push UP / Press", SCREEN_WIDTH / 2, 120, 2);
     } else {
         bool isRed = (_currentCard.suit == 1 || _currentCard.suit == 2 || (_currentCard.suit == 4 && _currentCard.value == 2));
         uint16_t themeColor = isRed ? TFT_RED : TFT_WHITE;
 
         if (_currentCard.suit == 4) {
-            // 鬼牌：繪製專屬星芒與大字 JOKER
-            drawPokerSuit(SCREEN_WIDTH / 2, 70, 4, isRed ? TFT_MAGENTA : TFT_CYAN);
+            drawPokerSuit(SCREEN_WIDTH / 2, 65, 4, isRed ? TFT_MAGENTA : TFT_CYAN);
             M5.Lcd.setTextColor(isRed ? TFT_MAGENTA : TFT_CYAN, TFT_BLACK);
             M5.Lcd.drawCentreString("JOKER", SCREEN_WIDTH / 2, 105, 4);
             M5.Lcd.setTextColor(TFT_WHITE, TFT_BLACK);
             M5.Lcd.drawCentreString(isRed ? "(COLOR)" : "(BLACK)", SCREEN_WIDTH / 2, 145, 2);
         } else {
-            // 繪製撲克花色圖案 (♠ ♥ ♦ ♣)
+            // 繪製花色圖案
             drawPokerSuit(SCREEN_WIDTH / 2, 65, _currentCard.suit, themeColor);
 
-            // 繪製巨幅點數 (A, 2~10, J, Q, K) - 使用 Font 6 (48點陣 ASCII，100% 支援字母)
+            // 繪製點數：使用真正的 ASCII 完整字型 Font 4 放大 2 倍 (高度 52px)，A, J, Q, K 100% 完美呈現！
             M5.Lcd.setTextColor(themeColor, TFT_BLACK);
-            M5.Lcd.drawCentreString(VALUE_NAMES[_currentCard.value], SCREEN_WIDTH / 2, 105, 6);
+            M5.Lcd.setTextSize(2);
+            M5.Lcd.drawCentreString(VALUE_NAMES[_currentCard.value], SCREEN_WIDTH / 2, 105, 4);
+            M5.Lcd.setTextSize(1);
         }
     }
 

@@ -1,6 +1,6 @@
 /**
  * @file SceneDice.cpp
- * @brief 直式多面骰子盒實作：局部無閃爍重繪、靈敏體感甩骰與大成功光效
+ * @brief 直式多面骰子盒實作：修復骰子下框被覆蓋問題、強化局部刷新
  */
 
 #include "scenes/SceneDice.h"
@@ -40,7 +40,6 @@ void SceneDice::update(InputManager& input, AudioManager& audio, LedManager& led
     }
 
     if (!_isRolling) {
-        // 左右切換面數
         if (input.joyPushedLeft) {
             if (_dieTypeIdx > 0) _dieTypeIdx--;
             else _dieTypeIdx = DIE_TYPE_COUNT - 1;
@@ -53,7 +52,6 @@ void SceneDice::update(InputManager& input, AudioManager& audio, LedManager& led
             _needsRedraw = true;
         }
 
-        // 上下增減顆數
         if (input.joyPushedUp) {
             if (_diceCount < 6) _diceCount++;
             audio.playTick();
@@ -64,7 +62,6 @@ void SceneDice::update(InputManager& input, AudioManager& audio, LedManager& led
             _needsRedraw = true;
         }
 
-        // 觸發擲骰：Button A、中心鍵或用力甩動
         if (input.btnAPressed || input.joyBtnPressed || input.isShaken) {
             rollDice(audio, led);
         }
@@ -79,7 +76,7 @@ void SceneDice::update(InputManager& input, AudioManager& audio, LedManager& led
             _needsRedraw = true;
         }
 
-        if (now - _rollStartTime > 600) {
+        if (now - _rollStartTime > 550) {
             _isRolling = false;
             for (uint8_t i = 0; i < _diceCount; i++) {
                 _diceResults[i] = random(1, DIE_FACES[_dieTypeIdx] + 1);
@@ -88,7 +85,7 @@ void SceneDice::update(InputManager& input, AudioManager& audio, LedManager& led
             if (DIE_FACES[_dieTypeIdx] == 20 && _diceCount == 1) {
                 if (_diceResults[0] == 20) {
                     audio.playCrit();
-                    led.flash(255, 255, 255, 5, 50);
+                    led.flash(0, 255, 255, 5, 50); // 冰河青爆閃替代白光
                 } else if (_diceResults[0] == 1) {
                     audio.playFumble();
                     led.flash(255, 0, 0, 3, 100);
@@ -109,7 +106,6 @@ void SceneDice::draw() {
     if (!_needsRedraw) return;
     _needsRedraw = false;
 
-    // 局部重繪：僅在初次或規格改變時整面填黑，滾動時只局部清除骰子內容區，徹底消滅閃爍
     static uint8_t lastCount = 255;
     static uint8_t lastType = 255;
     if (lastCount != _diceCount || lastType != _dieTypeIdx) {
@@ -117,7 +113,6 @@ void SceneDice::draw() {
         lastType = _dieTypeIdx;
         M5.Lcd.fillScreen(TFT_BLACK);
 
-        // 頂部狀態列
         M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 30, 0x2124);
         M5.Lcd.setTextColor(COLOR_GOLD, 0x2124);
         M5.Lcd.drawString("DICE ROLLER", 8, 4, 2);
@@ -127,7 +122,6 @@ void SceneDice::draw() {
         M5.Lcd.setTextColor(TFT_WHITE, 0x2124);
         M5.Lcd.drawRightString(specStr, SCREEN_WIDTH - 8, 8, 2);
 
-        // 底部指引
         M5.Lcd.drawFastHLine(6, 186, SCREEN_WIDTH - 12, 0x4208);
         M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
         M5.Lcd.drawCentreString("Joy L/R:d#  U/D:cnt", SCREEN_WIDTH / 2, 224, 1);
@@ -138,28 +132,31 @@ void SceneDice::draw() {
 
     if (_diceCount == 1) {
         int cx = SCREEN_WIDTH / 2;
-        int cy = 108;
-        int size = 42;
+        int cy = 104;
+        int size = 42; // 下邊緣在 cy + size = 146
 
-        // 局部清空中央幾何框內部
+        // 繪製完整外框
         M5.Lcd.drawRoundRect(cx - size, cy - size, size * 2, size * 2, 8, COLOR_GOLD);
+        // 只在內部填黑，絕對不破壞下框
         M5.Lcd.fillRoundRect(cx - size + 2, cy - size + 2, size * 2 - 4, size * 2 - 4, 6, TFT_BLACK);
 
         char numStr[8];
         snprintf(numStr, sizeof(numStr), "%d", _diceResults[0]);
         M5.Lcd.setTextColor(TFT_WHITE, TFT_BLACK);
-        // 使用 Font 6 (48點陣清晰大字)，絕不閃爍
-        M5.Lcd.drawCentreString(numStr, cx, cy - 18, 6);
+        // 數字置中 (字型 4 放大或使用乾淨文字)
+        M5.Lcd.setTextSize(2);
+        M5.Lcd.drawCentreString(numStr, cx, cy - 24, 4);
+        M5.Lcd.setTextSize(1);
 
-        // 清除下方提示區
-        M5.Lcd.fillRect(0, cy + 24, SCREEN_WIDTH, 20, TFT_BLACK);
+        // 清除下方提示區 (避開 cy + size，從 y = 152 開始清除，絕不擦掉下框！)
+        M5.Lcd.fillRect(0, 152, SCREEN_WIDTH, 26, TFT_BLACK);
         if (DIE_FACES[_dieTypeIdx] == 20 && !_isRolling) {
             if (_diceResults[0] == 20) {
                 M5.Lcd.setTextColor(TFT_GREEN, TFT_BLACK);
-                M5.Lcd.drawCentreString("CRITICAL!", cx, cy + 24, 2);
+                M5.Lcd.drawCentreString("CRITICAL!", cx, 154, 2);
             } else if (_diceResults[0] == 1) {
                 M5.Lcd.setTextColor(TFT_RED, TFT_BLACK);
-                M5.Lcd.drawCentreString("FUMBLE!", cx, cy + 24, 2);
+                M5.Lcd.drawCentreString("FUMBLE!", cx, 154, 2);
             }
         }
     } else {

@@ -1,6 +1,6 @@
 /**
  * @file SceneRoulette.cpp
- * @brief 直向垂直幸運輪盤實作：邊界安全裁剪防止壓標題、局部無閃爍捲動
+ * @brief 直向垂直幸運輪盤實作：加速停定曲線、防止慢速頻閃與白光色差修復
  */
 
 #include "scenes/SceneRoulette.h"
@@ -48,17 +48,19 @@ void SceneRoulette::update(InputManager& input, AudioManager& audio, LedManager&
 
     if (_isSpinning) {
         _stripPos += _stripSpeed;
-        _stripSpeed *= 0.982f;
+        // 更俐落的阻尼衰減 (0.94f)，避免快停時拖沓閃爍
+        _stripSpeed *= 0.94f;
 
         float maxPos = 37 * ITEM_HEIGHT;
         while (_stripPos >= maxPos) _stripPos -= maxPos;
 
-        if (millis() - _lastTickTime > (uint32_t)constrain(400.0f / (_stripSpeed + 1.0f), 20.0f, 250.0f)) {
+        if (millis() - _lastTickTime > (uint32_t)constrain(300.0f / (_stripSpeed + 1.0f), 20.0f, 180.0f)) {
             _lastTickTime = millis();
             audio.playTick();
         }
 
-        if (_stripSpeed < 0.35f) {
+        // 當速度 < 1.2f 時直接吸附停定，不再無休止滑行
+        if (_stripSpeed < 1.2f) {
             _isSpinning = false;
             _stripSpeed = 0.0f;
 
@@ -69,13 +71,13 @@ void SceneRoulette::update(InputManager& input, AudioManager& audio, LedManager&
             const RoulettePocket& winPocket = WHEEL_POCKETS[_targetIndex];
             if (winPocket.colorType == 0) {
                 audio.playCrit();
-                led.flash(0, 255, 100, 4, 60);
+                led.flash(0, 255, 0, 4, 60); // 綠色 0 純綠爆閃
             } else if (winPocket.colorType == 1) {
                 audio.playClick();
-                led.setColor(255, 0, 0);
+                led.setColor(255, 0, 0);     // 紅色純紅
             } else {
                 audio.playClick();
-                led.setColor(220, 220, 255);
+                led.setColor(0, 200, 255);   // 黑色號碼亮冰河青藍 (避開白光三色分離)
             }
         }
         _needsRedraw = true;
@@ -86,21 +88,19 @@ void SceneRoulette::draw() {
     if (!_needsRedraw) return;
     _needsRedraw = false;
 
-    // 清除中央捲軸區 (Y: 28 ~ 194)，避免整面黑屏閃爍
+    // 清除中央捲軸區 (Y: 28 ~ 194)
     M5.Lcd.fillRect(0, 28, SCREEN_WIDTH, 166, TFT_BLACK);
 
-    // 中央指針基準線 Y = 110
     int centerY = 110;
     int baseIdx = ((int)_stripPos / ITEM_HEIGHT);
     float offset = _stripPos - (baseIdx * ITEM_HEIGHT);
 
-    // 繪製捲軸格子
     for (int i = -3; i <= 3; i++) {
         int pocketIdx = (baseIdx + i + 370) % 37;
         const RoulettePocket& p = WHEEL_POCKETS[pocketIdx];
         int itemY = centerY + (i * ITEM_HEIGHT) - (int)offset - (ITEM_HEIGHT / 2);
 
-        // 嚴格邊界保護：超出動態顯示區則跳過，絕不壓住頂部 Title 與底部
+        // 嚴格邊界檢查，絕不壓住頂部與底部
         if (itemY < 28 || itemY + ITEM_HEIGHT > 194) continue;
 
         uint16_t bgColor = (p.colorType == 0) ? COLOR_ROU_GRN :
@@ -114,18 +114,18 @@ void SceneRoulette::draw() {
         M5.Lcd.drawCentreString(numStr, SCREEN_WIDTH / 2, itemY + 8, 4);
     }
 
-    // 左右指針標記獲勝中央線 (Y: 110)
+    // 左右獲勝指示指針
     M5.Lcd.fillTriangle(4, centerY - 8, 4, centerY + 8, 15, centerY, COLOR_GOLD);
     M5.Lcd.fillTriangle(SCREEN_WIDTH - 4, centerY - 8, SCREEN_WIDTH - 4, centerY + 8, SCREEN_WIDTH - 15, centerY, COLOR_GOLD);
 
-    // 頂部狀態列 (始終覆蓋在最上層，保證 Title 絕對不被蓋住)
+    // 頂部永久覆蓋
     M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 28, 0x18C3);
     M5.Lcd.setTextColor(COLOR_CYAN, 0x18C3);
     M5.Lcd.drawString("ROULETTE", 8, 6, 2);
     M5.Lcd.setTextColor(TFT_WHITE, 0x18C3);
     M5.Lcd.drawRightString("EUR 0-36", SCREEN_WIDTH - 8, 6, 2);
 
-    // 底部開獎與操作指引 (Y: 194 ~ 238)
+    // 底部狀態
     M5.Lcd.fillRect(0, 194, SCREEN_WIDTH, 46, TFT_BLACK);
     M5.Lcd.drawFastHLine(8, 194, SCREEN_WIDTH - 16, 0x39E7);
 
