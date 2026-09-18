@@ -1,6 +1,6 @@
 /**
  * @file SceneMenu.h
- * @brief 全域主選單場景標頭檔
+ * @brief 全域主選單場景標頭檔：整合聲音開關、亮度調節與直式卡片導航
  */
 
 #pragma once
@@ -18,8 +18,8 @@ public:
 private:
     uint8_t _selectedIdx;
     bool _needsRedraw;
-    uint32_t _lastAnimTime;
-    uint8_t _pulse;
+    uint8_t _brightnessLevel; // 0: 35%, 1: 70%, 2: 100%
+    bool _cachedMuteState;
 
-    void drawMenuItem(int idx, int y, bool isSelected);
+    void applyBrightness();
 };
