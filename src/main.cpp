@@ -1,8 +1,8 @@
 /**
  * @file main.cpp
- * @brief M5StickC Plus 與 MiniJoyC HAT 硬體功能驗證測試程式
- * @details 專為紓壓玩具專案設計之硬體檢測韌體，驗證 LCD 顯示、雙軸搖桿、微動按鍵、
- *          無源蜂鳴器、SK6812 全彩 RGB LED 以及 MPU6886 六軸姿態感測器。
+ * @brief M5StickC Plus 與 MiniJoyC HAT 硬體功能驗證測試程式 (靜音/邊緣觸發版)
+ * @details 修復蜂鳴器持續鳴叫問題，改為邊緣觸發 (Edge-triggered) 且預設極低音量/短促，
+ *          並在螢幕顯示搖桿按鍵原始數值。
  */
 
 #include <M5StickCPlus.h>
@@ -18,12 +18,12 @@ M5HatMiniJoyC joyc;
 uint32_t lastUpdate = 0;
 uint8_t colorHue = 0;
 
+// 按鍵前一次狀態 (用於邊緣偵測，避免每幀重複觸發)
+bool prevJoyBtn = false;
+bool soundEnabled = true; // 可透過 Button B 切換靜音
+
 /**
  * @brief 將 HSV 色彩空間轉換為 RGB888 格式
- * @param h 色相 (0 ~ 255)
- * @param s 飽和度 (0 ~ 255)
- * @param v 明度 (0 ~ 255)
- * @return 32 位元 RGB888 色彩值
  */
 uint32_t hsvToRgb(uint8_t h, uint8_t s, uint8_t v) {
     uint8_t r = 0, g = 0, b = 0;
@@ -46,102 +46,106 @@ uint32_t hsvToRgb(uint8_t h, uint8_t s, uint8_t v) {
 }
 
 /**
- * @brief 發出短促的清脆按鍵音 (模擬機械鍵盤軸體聲音)
+ * @brief 發出極輕微、極短促的按鍵音 (8ms 輕微木質點擊感)
  */
 void playClickSound() {
-    tone(BUZZER_PIN, 2400, 15); // 2.4kHz 頻率發聲 15ms
+    if (!soundEnabled) return;
+    tone(BUZZER_PIN, 1800, 8); // 輕微 8ms 點擊音，不擾民
 }
 
 void setup() {
-    // 1. 初始化 M5StickC Plus (啟用 LCD、電源管理、停用內建揚聲器由 tone 代替)
+    // 1. 初始化 M5StickC Plus
     M5.begin(true, true, false);
     M5.Lcd.setRotation(1); // 橫向顯示 (240 x 135)
     M5.Lcd.fillScreen(BLACK);
+
+    // 確保蜂鳴器先處於完全靜音狀態
+    pinMode(BUZZER_PIN, OUTPUT);
+    noTone(BUZZER_PIN);
+    digitalWrite(BUZZER_PIN, LOW);
+
     M5.Lcd.setTextSize(1);
     M5.Lcd.setTextColor(TFT_WHITE, TFT_BLACK);
+    M5.Lcd.drawString("Fidget Toy Init...", 10, 10, 2);
 
-    M5.Lcd.drawString("M5StickC Plus + MiniJoyC", 10, 10, 2);
-    M5.Lcd.drawString("Hardware Initializing...", 10, 30, 2);
+    // 2. 初始化頂部 HAT 擴充槽 I2C (SDA = 0, SCL = 26)
+    joyc.begin(&Wire, MiniJoyC_ADDR, 0, 26, 400000L);
 
-    // 2. 初始化無源蜂鳴器接腳
-    pinMode(BUZZER_PIN, OUTPUT);
-    playClickSound(); // 開機提示音
+    // 讀取初始按鍵狀態以避免開機誤觸發
+    prevJoyBtn = joyc.getButtonStatus();
 
-    // 3. 初始化頂部 HAT 擴充槽 I2C 匯流排對接 MiniJoyC
-    // MiniJoyC 接腳：SDA = GPIO 0, SCL = GPIO 26, 速率 = 400kHz, 位址 = 0x54
-    bool joycSuccess = joyc.begin(&Wire, MiniJoyC_ADDR, 0, 26, 400000L);
-
-    M5.Lcd.fillScreen(BLACK);
-    if (joycSuccess) {
-        M5.Lcd.setTextColor(TFT_GREEN, TFT_BLACK);
-        M5.Lcd.drawString("[OK] MiniJoyC Connected!", 10, 10, 2);
-        // 設定初次燈光為翠綠色
-        joyc.setLEDColor(0x00FF33);
-    } else {
-        M5.Lcd.setTextColor(TFT_RED, TFT_BLACK);
-        M5.Lcd.drawString("[WARN] JoyC Not Found @0x54", 10, 10, 2);
-    }
-
-    delay(800);
+    delay(300);
     M5.Lcd.fillScreen(BLACK);
 }
 
 void loop() {
-    // 更新 M5 按鍵狀態
     M5.update();
 
-    // 檢查 StickC 實體按鍵觸發
+    // 正面 Button A：敲擊木魚測試
     if (M5.BtnA.wasPressed()) {
         playClickSound();
-        joyc.setLEDColor(0xFFCC00); // 閃爍金黃光（木魚模式）
+        joyc.setLEDColor(0xFFCC00); // 暖黃金光
     }
+
+    // 側面 Button B：切換靜音 / 聲音模式
     if (M5.BtnB.wasPressed()) {
-        playClickSound();
-        joyc.setLEDColor(0xFF0055); // 閃爍桃紅光（切換指示）
+        soundEnabled = !soundEnabled;
+        if (soundEnabled) {
+            playClickSound();
+        } else {
+            noTone(BUZZER_PIN);
+            digitalWrite(BUZZER_PIN, LOW);
+        }
     }
 
     // 定時讀取搖桿與姿態資訊並更新畫面 (約 30 FPS)
     if (millis() - lastUpdate > 33) {
         lastUpdate = millis();
 
-        // 讀取 MiniJoyC 搖桿 10-bit 位置與按鍵狀態 (注意：有號數 int16_t，中心約為 0)
+        // 讀取 MiniJoyC 搖桿數值 (有號數 int16_t，中心約為 0)
         int16_t joyX = (int16_t)joyc.getPOSValue(POS_X, _10bit);
         int16_t joyY = (int16_t)joyc.getPOSValue(POS_Y, _10bit);
-        bool joyBtn = joyc.getButtonStatus();
 
-        if (joyBtn) {
-            // 搖桿按鍵按下瞬間
-            playClickSound();
+        // 讀取搖桿中心按鍵
+        bool currentJoyBtn = joyc.getButtonStatus();
+
+        // 僅在「邊緣變化 (從未按到按下)」時發聲一次，絕不持續鳴叫
+        if (currentJoyBtn != prevJoyBtn) {
+            if (currentJoyBtn) {
+                playClickSound(); // 僅在按下瞬間響一次
+            }
+            prevJoyBtn = currentJoyBtn;
         }
 
-        // 讀取 MPU6886 六軸加速度計數值
+        // 讀取六軸姿態
         float ax = 0, ay = 0, az = 0;
         M5.IMU.getAccelData(&ax, &ay, &az);
 
-        // 動態更新 RGB 氛圍燈 (色相環漸變)
+        // 全彩氛圍燈柔和呼吸流光
         colorHue += 2;
-        joyc.setLEDColor(hsvToRgb(colorHue, 255, 120));
+        joyc.setLEDColor(hsvToRgb(colorHue, 255, 80));
 
-        // 螢幕繪製資訊看板
+        // 螢幕繪製
         M5.Lcd.setTextColor(TFT_CYAN, TFT_BLACK);
-        M5.Lcd.drawString("=== Fidget Toy Diagnostic ===", 10, 5, 2);
+        M5.Lcd.drawString("=== Fidget Toy (Quiet) ===", 10, 5, 2);
 
         M5.Lcd.setTextColor(TFT_WHITE, TFT_BLACK);
-        M5.Lcd.setCursor(10, 30, 2);
-        M5.Lcd.printf("Joy X: %4d   Y: %4d\n", joyX, joyY);
+        M5.Lcd.setCursor(10, 28, 2);
+        M5.Lcd.printf("Joy X: %4d  Y: %4d\n", joyX, joyY);
 
-        M5.Lcd.setCursor(10, 50, 2);
-        M5.Lcd.printf("Joy Btn: %s\n", joyBtn ? "PRESSED (1)" : "RELEASE (0)");
+        M5.Lcd.setCursor(10, 48, 2);
+        M5.Lcd.printf("Joy Btn: %d (%s)\n",
+                      currentJoyBtn ? 1 : 0,
+                      currentJoyBtn ? "PRESS" : "IDLE ");
 
-        M5.Lcd.setCursor(10, 70, 2);
-        M5.Lcd.printf("IMU Accel: X:%.2f Y:%.2f\n", ax, ay);
+        M5.Lcd.setCursor(10, 68, 2);
+        M5.Lcd.printf("IMU Acc: X:%.2f Y:%.2f\n", ax, ay);
 
-        M5.Lcd.setCursor(10, 90, 2);
-        M5.Lcd.printf("BtnA: %s | BtnB: %s\n",
-                      M5.BtnA.isPressed() ? "DOWN" : "UP  ",
-                      M5.BtnB.isPressed() ? "DOWN" : "UP  ");
+        M5.Lcd.setCursor(10, 88, 2);
+        M5.Lcd.printf("Sound: %s (BtnB toggles)\n",
+                      soundEnabled ? "ON [Mute:BtnB]" : "MUTED (靜音) ");
 
-        // 繪製中心虛擬準心與搖桿偏移小圓點
+        // 繪製右側準心與搖桿小圓點
         int centerX = 195;
         int centerY = 75;
         int maxRadius = 35;
@@ -149,9 +153,11 @@ void loop() {
         M5.Lcd.drawLine(centerX - 5, centerY, centerX + 5, centerY, TFT_DARKGREY);
         M5.Lcd.drawLine(centerX, centerY - 5, centerX, centerY + 5, TFT_DARKGREY);
 
-        // 將 -512 ~ 511 映射至圓形範圍
         int dotX = centerX + (joyX * (maxRadius - 4) / 512);
         int dotY = centerY + (joyY * (maxRadius - 4) / 512);
-        M5.Lcd.fillCircle(dotX, dotY, 4, joyBtn ? TFT_RED : TFT_YELLOW);
+        // 限制在圓圈內
+        dotX = constrain(dotX, centerX - maxRadius + 4, centerX + maxRadius - 4);
+        dotY = constrain(dotY, centerY - maxRadius + 4, centerY + maxRadius - 4);
+        M5.Lcd.fillCircle(dotX, dotY, 4, currentJoyBtn ? TFT_RED : TFT_YELLOW);
     }
 }
