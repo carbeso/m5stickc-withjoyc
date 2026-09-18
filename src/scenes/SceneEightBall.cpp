@@ -5,29 +5,32 @@
 
 #include "scenes/SceneEightBall.h"
 
-// 經典英文八號球籤詩清單 (純 ASCII，絕無字模異常)
+// 經典英文八號球籤詩清單 (依據維基百科官方標準 20 款解答)
 const ClassicFortune CLASSIC_FORTUNES[] = {
-    // 肯定類 (吉)
+    // --- 正向肯定 (Affirmative - 10 款：淡藍色倒三角 ▼) ---
     {"IT IS", "CERTAIN", 0},
-    {"DEFINITELY", "YES", 0},
+    {"IT IS", "DECIDEDLY SO", 0},
     {"WITHOUT", "A DOUBT", 0},
-    {"OUTLOOK", "GOOD", 0},
-    {"SIGNS POINT", "TO YES", 0},
+    {"YES,", "DEFINITELY", 0},
+    {"YOU MAY", "RELY ON IT", 0},
+    {"AS I SEE IT,", "YES", 0},
     {"MOST", "LIKELY", 0},
-    {"YES,", "ABSOLUTELY", 0},
+    {"OUTLOOK", "GOOD", 0},
+    {"YES", "", 0},
+    {"SIGNS POINT", "TO YES", 0},
 
-    // 猶豫類 (惑)
-    {"REPLY HAZY", "TRY AGAIN", 1},
+    // --- 模糊中立 (Non-committal - 5 款：淡紫色菱形水晶 ◆) ---
+    {"REPLY HAZY,", "TRY AGAIN", 1},
     {"ASK AGAIN", "LATER", 1},
-    {"BETTER NOT", "TELL NOW", 1},
-    {"CANNOT", "PREDICT", 1},
-    {"CONCENTRATE", "& ASK", 1},
+    {"BETTER NOT", "TELL YOU NOW", 1},
+    {"CANNOT", "PREDICT NOW", 1},
+    {"CONCENTRATE", "& ASK AGAIN", 1},
 
-    // 否定類 (凶)
+    // --- 否定懷疑 (Negative - 5 款：淡紅色正三角 ▲) ---
     {"DON'T", "COUNT ON IT", 2},
     {"MY REPLY", "IS NO", 2},
     {"MY SOURCES", "SAY NO", 2},
-    {"OUTLOOK", "NOT GOOD", 2},
+    {"OUTLOOK NOT", "SO GOOD", 2},
     {"VERY", "DOUBTFUL", 2}
 };
 
@@ -90,13 +93,13 @@ void SceneEightBall::update(InputManager& input, AudioManager& audio, LedManager
             uint8_t cat = CLASSIC_FORTUNES[_fortuneIdx].category;
             if (cat == 0) {
                 audio.playCrit();
-                led.setColor(0, 255, 0);       // 吉：純綠
+                led.setColor(0, 200, 255);     // 正向：冰河淡藍
             } else if (cat == 1) {
                 audio.playClick();
-                led.setColor(200, 0, 255);     // 惑：霓虹紫
+                led.setColor(200, 50, 255);    // 模糊：神秘淡紫
             } else {
                 audio.playFumble();
-                led.setColor(255, 0, 0);       // 凶：純紅
+                led.setColor(255, 60, 60);     // 否定：淡紅
             }
             _needsRedraw = true;
         }
@@ -107,7 +110,7 @@ void SceneEightBall::draw() {
     if (!_needsRedraw) return;
     _needsRedraw = false;
 
-    // 頂部狀態列：左側 8-BALL，簡潔不壓右側
+    // 頂部狀態列：左側 8-BALL，右側 ORACLE
     M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 26, 0x18C3);
     M5.Lcd.setTextColor(COLOR_PURPLE, 0x18C3);
     M5.Lcd.drawString("8-BALL", 8, 5, 2);
@@ -133,31 +136,67 @@ void SceneEightBall::draw() {
         return;
     }
 
+    int cx = SCREEN_WIDTH / 2;
+    int cy = 105;
+
     if (_isRevealing) {
-        // 浮現翻滾動效
-        int cx = SCREEN_WIDTH / 2;
-        int cy = 105;
-        M5.Lcd.fillTriangle(cx, cy - 40, cx - 45, cy + 40, cx + 45, cy + 40, 0x0113);
+        // 浮現翻滾動效：水底倒三角漸現
+        M5.Lcd.fillTriangle(cx - 45, cy - 40, cx + 45, cy - 40, cx, cy + 45, 0x0113);
+        M5.Lcd.drawTriangle(cx - 45, cy - 40, cx + 45, cy - 40, cx, cy + 45, 0x07FF);
         M5.Lcd.setTextColor(COLOR_CYAN, 0x0113);
-        M5.Lcd.drawCentreString("WAIT...", cx, cy - 5, 2);
+        M5.Lcd.drawCentreString("SEEKING...", cx, cy - 12, 2);
     } else {
-        // 占卜結果：經典深藍色三角形浮動視窗
+        // 占卜結果：依正向、否定、模糊分別繪製專屬幾何幾何浮牌
         const ClassicFortune& cf = CLASSIC_FORTUNES[_fortuneIdx];
-        uint16_t txtColor = (cf.category == 0) ? TFT_GREEN :
-                            (cf.category == 1) ? COLOR_CYAN : TFT_RED;
 
-        int cx = SCREEN_WIDTH / 2;
-        int cy = 105;
+        if (cf.category == 0) {
+            // 1. 正向肯定：淡藍色倒三角形 (Inverted Triangle ▼，尖端朝下)
+            int yTop = cy - 48;
+            int yTip = cy + 54;
+            int xSpan = 58;
 
-        // 倒三角二十面體浮牌
-        M5.Lcd.fillTriangle(cx, cy - 55, cx - 58, cy + 48, cx + 58, cy + 48, 0x09CD);
-        M5.Lcd.drawTriangle(cx, cy - 55, cx - 58, cy + 48, cx + 58, cy + 48, COLOR_CYAN);
+            M5.Lcd.fillTriangle(cx - xSpan, yTop, cx + xSpan, yTop, cx, yTip, 0x09CD);
+            M5.Lcd.drawTriangle(cx - xSpan, yTop, cx + xSpan, yTop, cx, yTip, COLOR_LIGHT_BLUE);
 
-        // 橫向居中顯示純英文文字 (使用抗鋸齒向量字型，字字清楚大氣，絕不跑版)
-        M5.Lcd.setTextColor(txtColor, 0x09CD);
-        M5.Lcd.drawCentreString(cf.line1, cx, cy - 20, 2);
-        M5.Lcd.setTextColor(TFT_WHITE, 0x09CD);
-        M5.Lcd.drawCentreString(cf.line2, cx, cy + 2, 2);
+            // 文字居中於上部較寬區域
+            M5.Lcd.setTextColor(COLOR_CYAN, 0x09CD);
+            M5.Lcd.drawCentreString(cf.line1, cx, cy - 30, 2);
+            M5.Lcd.setTextColor(TFT_WHITE, 0x09CD);
+            M5.Lcd.drawCentreString(cf.line2, cx, cy - 10, 2);
+        } else if (cf.category == 2) {
+            // 2. 否定懷疑：淡紅色正三角形 (Upright Triangle ▲，尖端朝上)
+            int yTip = cy - 54;
+            int yBase = cy + 48;
+            int xSpan = 58;
+
+            M5.Lcd.fillTriangle(cx, yTip, cx - xSpan, yBase, cx + xSpan, yBase, 0x3842);
+            M5.Lcd.drawTriangle(cx, yTip, cx - xSpan, yBase, cx + xSpan, yBase, COLOR_LIGHT_RED);
+
+            // 文字居中於下部較寬區域
+            M5.Lcd.setTextColor(COLOR_LIGHT_RED, 0x3842);
+            M5.Lcd.drawCentreString(cf.line1, cx, cy + 4, 2);
+            M5.Lcd.setTextColor(TFT_WHITE, 0x3842);
+            M5.Lcd.drawCentreString(cf.line2, cx, cy + 24, 2);
+        } else {
+            // 3. 模糊中立：淡紫色菱形水晶 (Diamond ◆，神秘未知感)
+            int yUp = cy - 52;
+            int yDown = cy + 52;
+            int xSpan = 56;
+
+            // 上三角 + 下三角拼合為菱形
+            M5.Lcd.fillTriangle(cx, yUp, cx - xSpan, cy, cx + xSpan, cy, 0x2128);
+            M5.Lcd.fillTriangle(cx, yDown, cx - xSpan, cy, cx + xSpan, cy, 0x2128);
+            M5.Lcd.drawLine(cx, yUp, cx - xSpan, cy, COLOR_PURPLE);
+            M5.Lcd.drawLine(cx, yUp, cx + xSpan, cy, COLOR_PURPLE);
+            M5.Lcd.drawLine(cx, yDown, cx - xSpan, cy, COLOR_PURPLE);
+            M5.Lcd.drawLine(cx, yDown, cx + xSpan, cy, COLOR_PURPLE);
+
+            // 文字居中於菱形中央最寬區域
+            M5.Lcd.setTextColor(0xDCBE, 0x2128);
+            M5.Lcd.drawCentreString(cf.line1, cx, cy - 14, 2);
+            M5.Lcd.setTextColor(TFT_WHITE, 0x2128);
+            M5.Lcd.drawCentreString(cf.line2, cx, cy + 6, 2);
+        }
     }
 
     // 底部指引
@@ -165,3 +204,4 @@ void SceneEightBall::draw() {
     M5.Lcd.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
     M5.Lcd.drawCentreString("[SHAKE TO RE-ASK]", SCREEN_WIDTH / 2, 220, 1);
 }
+

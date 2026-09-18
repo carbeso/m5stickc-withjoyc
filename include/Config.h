@@ -26,17 +26,21 @@ enum GameScene {
     SCENE_MENU = 0,         // 全域主選單
     SCENE_DICE,             // 遊戲一：多面骰子盒
     SCENE_POKER,            // 遊戲二：極簡幸運撲克
-    SCENE_EIGHT_BALL,       // 遊戲三：直式粒子八號球
+    SCENE_EIGHT_BALL,       // 遊戲三：神秘八號球
     SCENE_ROULETTE,         // 遊戲四：直向垂直幸運輪盤
     SCENE_SLOT,             // 遊戲五：3x3 搖桿下拉角子老虎機
+    SCENE_COIN,             // 遊戲六：1~5枚擲硬幣
     SCENE_COUNT
 };
 
 // --- 色彩常數定義 (RGB565) ---
 #define COLOR_BG        0x0000 // 純黑背景
 #define COLOR_GOLD      0xFEA0 // 金黃色
+#define COLOR_SILVER    0xCE79 // 亮銀灰
 #define COLOR_CYAN      0x07FF // 科技青
 #define COLOR_PURPLE    0x915F // 神秘紫
+#define COLOR_LIGHT_BLUE 0x5D3F // 淡天藍
+#define COLOR_LIGHT_RED  0xFB8E // 淡粉紅
 #define COLOR_CARD_RED  0xF800 // 撲克鮮紅
 #define COLOR_CARD_WHT  0xFFFF // 撲克純白
 #define COLOR_ROU_RED   0xD800 // 輪盤深紅

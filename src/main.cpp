@@ -16,6 +16,7 @@
 #include "scenes/SceneEightBall.h"
 #include "scenes/SceneRoulette.h"
 #include "scenes/SceneSlot.h"
+#include "scenes/SceneCoin.h"
 
 InputManager input;
 AudioManager audio;
@@ -27,6 +28,7 @@ ScenePoker scenePoker;
 SceneEightBall sceneEightBall;
 SceneRoulette sceneRoulette;
 SceneSlot sceneSlot;
+SceneCoin sceneCoin;
 
 Scene* currentScene = &sceneMenu;
 
@@ -38,6 +40,7 @@ void switchScene(GameScene target) {
         case SCENE_EIGHT_BALL:  currentScene = &sceneEightBall; break;
         case SCENE_ROULETTE:    currentScene = &sceneRoulette; break;
         case SCENE_SLOT:        currentScene = &sceneSlot; break;
+        case SCENE_COIN:        currentScene = &sceneCoin; break;
         default:                currentScene = &sceneMenu; break;
     }
     currentScene->clearNextScene();
@@ -66,7 +69,7 @@ void setup() {
     M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
     M5.Lcd.drawCentreString("FIDGET TOY", SCREEN_WIDTH / 2, 85, 4);
     M5.Lcd.setTextColor(COLOR_CYAN, TFT_BLACK);
-    M5.Lcd.drawCentreString("5-in-1 System", SCREEN_WIDTH / 2, 120, 2);
+    M5.Lcd.drawCentreString("6-in-1 System", SCREEN_WIDTH / 2, 120, 2);
     audio.playClick();
     led.setColor(255, 200, 50);
 
