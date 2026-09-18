@@ -69,38 +69,15 @@ void SceneEightBall::update(InputManager& input, AudioManager& audio, LedManager
     if (!_isRevealing) {
         // 啟動占卜：必須是明確按鍵或甩動脈衝觸發，絕不因常態推持誤觸
         if (input.btnAPressed || input.joyBtnPressed || input.isShaken) {
-            startDivination(!input.isShaken, audio, led);
+            startDivination(true, audio, led);
         }
     } else {
         // 翻騰冒泡進行中
         uint32_t now = millis();
         uint32_t elapsed = now - _revealStartTime;
 
-        // 連續冒泡音效
-        if (now - _lastBubbleTime > 180) {
-            _lastBubbleTime = now;
-            audio.playBubble();
-        }
-
-        bool stillHolding = (input.isJoyBtnHeld || input.isBtnAHeld);
-
-        // 停止判定：
-        // 1. 若為按鍵觸發：放開按鍵且超過 250ms -> 開籤
-        // 2. 若為體感甩動：手部不再激烈甩動且超過 350ms -> 開籤
-        // 3. 絕對超時防呆：若持續超過 3500ms 強制開籤
-        bool readyToReveal = false;
-        if (_triggeredByBtn) {
-            if (!stillHolding && (elapsed > 250)) {
-                readyToReveal = true;
-            }
-        } else {
-            if (!input.isActivelyShaking && (elapsed > 350)) {
-                readyToReveal = true;
-            }
-        }
-        if (elapsed > 3500) readyToReveal = true;
-
-        if (readyToReveal) {
+        // 輕快冒泡 450ms 後直接開籤，無需長拉持續旋轉！
+        if (elapsed > 450) {
             _isRevealing = false;
             _isRevealed = true;
 

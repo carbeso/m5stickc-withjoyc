@@ -119,30 +119,35 @@ void SceneSlot::update(InputManager& input, AudioManager& audio, LedManager& led
         _needsRedraw = true;
 
         // 煞車時序控制：
-        // 只要玩家還拉著搖桿或持續甩動，且未超過 3.5 秒超時，維持三輪滾動
-        if ((stillHolding || input.isActivelyShaking) && elapsed < 3500) {
+        // 1. 只要玩家持續拉著搖桿或持續甩動，且未達 15 秒安全超時，三輪維持全速飛轉！
+        bool isHoldingOrShaking = (stillHolding || input.isActivelyShaking);
+
+        if (isHoldingOrShaking && elapsed < 15000) {
             _releaseTime = 0; // 重置放開計時
             _colSpinning[0] = true;
             _colSpinning[1] = true;
             _colSpinning[2] = true;
         } else {
-            // 剛放開拉桿或手部停止晃動 (或達到 3.5s 超時)
+            // 玩家已放開拉桿 (或達到超時)
             if (_releaseTime == 0) {
                 _releaseTime = now;
             }
 
             uint32_t timeSinceRelease = now - _releaseTime;
 
-            // 依序煞車 (放開後 200ms -> 450ms -> 700ms)
-            if (timeSinceRelease > 200 && _colSpinning[0]) {
+            // 依序煞車：必須同時滿足「最短轉動時間」與「放開後間隔」，確保有一兩秒以上扎實體驗
+            // 第 1 輪煞停：放開後滿 350ms 且總時間滿 1400ms
+            if (_colSpinning[0] && timeSinceRelease > 350 && elapsed > 1400) {
                 _colSpinning[0] = false;
                 audio.playClick();
             }
-            if (timeSinceRelease > 450 && _colSpinning[1]) {
+            // 第 2 輪煞停：第 1 輪停後且放開後滿 750ms，總時間滿 1800ms
+            if (_colSpinning[1] && !_colSpinning[0] && timeSinceRelease > 750 && elapsed > 1800) {
                 _colSpinning[1] = false;
                 audio.playClick();
             }
-            if (timeSinceRelease > 700 && _colSpinning[2]) {
+            // 第 3 輪煞停：第 2 輪停後且放開後滿 1200ms，總時間滿 2250ms -> 開獎！
+            if (_colSpinning[2] && !_colSpinning[1] && timeSinceRelease > 1200 && elapsed > 2250) {
                 _colSpinning[2] = false;
                 _releaseTime = 0;
                 checkWinLines(audio, led);

@@ -71,15 +71,18 @@ void SceneRoulette::update(InputManager& input, AudioManager& audio, LedManager&
         }
 
         // 動力學狀態處理：
-        if (stillHolding && elapsed < 3500) {
-            // 玩家持續拉著搖桿：漸入加速至極速 26.0
-            if (_stripSpeed < 26.0f) _stripSpeed += 1.2f;
-        } else if (input.isActivelyShaking && elapsed < 3500) {
-            // 玩家持續甩動機身：維持極速
-            _stripSpeed = 25.0f;
+        bool isHoldingOrShaking = (stillHolding || input.isActivelyShaking);
+
+        if (isHoldingOrShaking && elapsed < 15000) {
+            // 玩家持續拉著搖桿或甩動：加速至極速 25.0f 並持續全速旋轉！
+            if (_stripSpeed < 25.0f) _stripSpeed += 1.5f;
+            else _stripSpeed = 25.0f;
+        } else if (elapsed < 1400) {
+            // 即使短拉放開，最短前 1.4 秒維持高速巡航，確保有一兩秒的厚重期待感
+            if (_stripSpeed < 24.0f) _stripSpeed += 1.5f;
         } else {
-            // 玩家已放開搖桿且手部未在甩動 (或達到 3.5s 超時防呆)：自然滑行減速
-            _stripSpeed *= 0.94f;
+            // 玩家已放開搖桿且已滿最短旋轉時間：自然滑行減速 (Ease-Out Deceleration)
+            _stripSpeed *= 0.945f;
 
             // 停定判定
             if (_stripSpeed < 1.2f) {

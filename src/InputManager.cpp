@@ -69,9 +69,19 @@ void InputManager::update() {
     if (currJoyBtn && !_prevJoyBtn) joyBtnPressed = true;
     _prevJoyBtn = currJoyBtn;
 
-    // 3. 搖桿持續方向狀態
-    isJoyPulledDown = (joyY > JOY_TRIGGER_PULL);
-    isJoyPushedUp = (joyY < -JOY_TRIGGER_PULL);
+    // 3. 搖桿持續方向狀態 (具備 Hysteresis 遲滯回差：進入門檻 55，維持門檻 35)
+    if (!_prevPulledDown) {
+        isJoyPulledDown = (joyY > 55);
+    } else {
+        isJoyPulledDown = (joyY > 35);
+    }
+
+    if (!_prevPushedUp) {
+        isJoyPushedUp = (joyY < -55);
+    } else {
+        isJoyPushedUp = (joyY < -35);
+    }
+
     bool isLeft = (joyX < -JOY_TRIGGER_PULL);
     bool isRight = (joyX > JOY_TRIGGER_PULL);
 

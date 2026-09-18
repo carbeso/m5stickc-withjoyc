@@ -105,20 +105,20 @@ void SceneDice::update(InputManager& input, AudioManager& audio, LedManager& led
         }
 
         // 停止判定：
-        // (A) 若由按鈕/搖桿觸發：放開且滾動滿 250ms 即煞停定格
-        // (B) 若由體感甩動觸發：手腕不再激烈甩動且滾動滿 350ms 即定格
-        // (C) 絕對超時防呆：若持續超過 3500ms 強制煞停
+        // (A) 若由按鈕/搖桿觸發：放開且滾動滿 1200ms 即煞停定格 (確保有一兩秒厚重感)
+        // (B) 若由體感甩動觸發：手腕不再激烈甩動且滾動滿 1200ms 即定格
+        // (C) 絕對超時防呆：若持續超過 15000ms 強制煞停
         bool readyToStop = false;
         if (_triggeredByJoy) {
-            if (!stillHolding && (elapsed > 250)) {
+            if (!stillHolding && (elapsed > 1200)) {
                 readyToStop = true;
             }
         } else {
-            if (!input.isActivelyShaking && (elapsed > 350)) {
+            if (!input.isActivelyShaking && (elapsed > 1200)) {
                 readyToStop = true;
             }
         }
-        if (elapsed > 3500) readyToStop = true;
+        if (elapsed > 15000) readyToStop = true;
 
         if (readyToStop) {
             _isRolling = false;
