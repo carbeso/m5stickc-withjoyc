@@ -1,13 +1,41 @@
 /**
  * @file SceneEightBall.cpp
- * @brief 直式粒子神秘八號球實作：修復字形指針讀取、Font 4 橫向英文與單色純光
+ * @brief 純英文經典神秘八號球實作：100% 移除中文能力，採用清晰居中英文與二十面體浮牌
  */
 
 #include "scenes/SceneEightBall.h"
 
+// 經典英文八號球籤詩清單 (純 ASCII，絕無字模異常)
+const ClassicFortune CLASSIC_FORTUNES[] = {
+    // 肯定類 (吉)
+    {"IT IS", "CERTAIN", 0},
+    {"DEFINITELY", "YES", 0},
+    {"WITHOUT", "A DOUBT", 0},
+    {"OUTLOOK", "GOOD", 0},
+    {"SIGNS POINT", "TO YES", 0},
+    {"MOST", "LIKELY", 0},
+    {"YES,", "ABSOLUTELY", 0},
+
+    // 猶豫類 (惑)
+    {"REPLY HAZY", "TRY AGAIN", 1},
+    {"ASK AGAIN", "LATER", 1},
+    {"BETTER NOT", "TELL NOW", 1},
+    {"CANNOT", "PREDICT", 1},
+    {"CONCENTRATE", "& ASK", 1},
+
+    // 否定類 (凶)
+    {"DON'T", "COUNT ON IT", 2},
+    {"MY REPLY", "IS NO", 2},
+    {"MY SOURCES", "SAY NO", 2},
+    {"OUTLOOK", "NOT GOOD", 2},
+    {"VERY", "DOUBTFUL", 2}
+};
+
+const uint8_t CLASSIC_COUNT = sizeof(CLASSIC_FORTUNES) / sizeof(CLASSIC_FORTUNES[0]);
+
 SceneEightBall::SceneEightBall()
     : _fortuneIdx(0), _isRevealing(false), _isRevealed(false),
-      _revealStartTime(0), _revealStep(0), _needsRedraw(true) {}
+      _revealStartTime(0), _needsRedraw(true) {}
 
 void SceneEightBall::init() {
     _needsRedraw = true;
@@ -18,10 +46,9 @@ void SceneEightBall::init() {
 }
 
 void SceneEightBall::startDivination(AudioManager& audio, LedManager& led) {
-    _fortuneIdx = random(0, FORTUNE_COUNT);
+    _fortuneIdx = random(0, CLASSIC_COUNT);
     _isRevealing = true;
     _isRevealed = false;
-    _revealStep = 0;
     _revealStartTime = millis();
 
     audio.playBubble();
@@ -41,42 +68,23 @@ void SceneEightBall::update(InputManager& input, AudioManager& audio, LedManager
     }
 
     if (_isRevealing) {
-        uint32_t now = millis();
-        if (now - _revealStartTime > 45) {
-            _revealStartTime = now;
-            _revealStep++;
-            audio.playTick();
+        uint32_t elapsed = millis() - _revealStartTime;
+        if (elapsed > 450) {
+            _isRevealing = false;
+            _isRevealed = true;
 
-            if (_revealStep >= 16) {
-                _isRevealing = false;
-                _isRevealed = true;
-
-                uint8_t cat = FORTUNE_LIST[_fortuneIdx].category;
-                if (cat == 0) {
-                    audio.playCrit();
-                    led.setColor(0, 255, 0);       // 純綠 (無混光色差)
-                } else if (cat == 1) {
-                    audio.playClick();
-                    led.setColor(200, 0, 255);     // 霓虹紫
-                } else {
-                    audio.playFumble();
-                    led.setColor(255, 0, 0);       // 純紅
-                }
+            uint8_t cat = CLASSIC_FORTUNES[_fortuneIdx].category;
+            if (cat == 0) {
+                audio.playCrit();
+                led.setColor(0, 255, 0);       // 吉：純綠
+            } else if (cat == 1) {
+                audio.playClick();
+                led.setColor(200, 0, 255);     // 惑：霓虹紫
+            } else {
+                audio.playFumble();
+                led.setColor(255, 0, 0);       // 凶：純紅
             }
             _needsRedraw = true;
-        }
-    }
-}
-
-void SceneEightBall::drawChineseChar(int x, int y, const char* utf8Char, uint8_t maxRow, uint16_t color) {
-    const uint16_t* rows = getGlyphBitmap(utf8Char);
-    for (int r = 0; r < 16; r++) {
-        if (r > maxRow) break;
-        uint16_t rowData = rows[r]; // 直接存取 Flash .rodata
-        for (int c = 0; c < 16; c++) {
-            if (rowData & (0x8000 >> c)) {
-                M5.Lcd.fillRect(x + c * 2, y + r * 2, 2, 2, color);
-            }
         }
     }
 }
@@ -85,10 +93,12 @@ void SceneEightBall::draw() {
     if (!_needsRedraw) return;
     _needsRedraw = false;
 
-    // 頂部標題
+    // 頂部狀態列：左側 8-BALL，簡潔不壓右側
     M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 26, 0x18C3);
     M5.Lcd.setTextColor(COLOR_PURPLE, 0x18C3);
-    M5.Lcd.drawString("MAGIC 8-BALL", 8, 5, 2);
+    M5.Lcd.drawString("8-BALL", 8, 5, 2);
+    M5.Lcd.setTextColor(COLOR_GOLD, 0x18C3);
+    M5.Lcd.drawRightString("ORACLE", SCREEN_WIDTH - 8, 7, 1);
 
     // 清空動態占卜區
     M5.Lcd.fillRect(0, 26, SCREEN_WIDTH, 186, TFT_BLACK);
@@ -109,26 +119,31 @@ void SceneEightBall::draw() {
         return;
     }
 
-    const FortunePhrase& fp = FORTUNE_LIST[_fortuneIdx];
-    uint16_t themeColor = (fp.category == 0) ? TFT_GREEN :
-                          (fp.category == 1) ? TFT_MAGENTA : TFT_RED;
+    if (_isRevealing) {
+        // 浮現翻滾動效
+        int cx = SCREEN_WIDTH / 2;
+        int cy = 105;
+        M5.Lcd.fillTriangle(cx, cy - 40, cx - 45, cy + 40, cx + 45, cy + 40, 0x0113);
+        M5.Lcd.setTextColor(COLOR_CYAN, 0x0113);
+        M5.Lcd.drawCentreString("WAIT...", cx, cy - 5, 2);
+    } else {
+        // 占卜結果：經典深藍色三角形浮動視窗
+        const ClassicFortune& cf = CLASSIC_FORTUNES[_fortuneIdx];
+        uint16_t txtColor = (cf.category == 0) ? TFT_GREEN :
+                            (cf.category == 1) ? COLOR_CYAN : TFT_RED;
 
-    // 繁體中文 32x32 直向居中 (X = 51)
-    int startY = 32;
-    int charSpacing = 36;
-    int centerX = (SCREEN_WIDTH - 32) / 2; // 51
+        int cx = SCREEN_WIDTH / 2;
+        int cy = 105;
 
-    for (int i = 0; i < 4; i++) {
-        uint8_t step = _isRevealing ? constrain(_revealStep - i * 3, 0, 15) : 15;
-        if (step > 0 || _isRevealed) {
-            drawChineseChar(centerX, startY + i * charSpacing, fp.cn[i], step, themeColor);
-        }
-    }
+        // 倒三角二十面體浮牌
+        M5.Lcd.fillTriangle(cx, cy - 55, cx - 58, cy + 48, cx + 58, cy + 48, 0x09CD);
+        M5.Lcd.drawTriangle(cx, cy - 55, cx - 58, cy + 48, cx + 58, cy + 48, COLOR_CYAN);
 
-    // 英文副標橫向居中於中文字下方，使用字型 2 或 4 (支援英文字母)，絕不跑版
-    if (_isRevealed) {
-        M5.Lcd.setTextColor(TFT_WHITE, TFT_BLACK);
-        M5.Lcd.drawCentreString(fp.en, SCREEN_WIDTH / 2, 180, 2);
+        // 橫向居中顯示純英文文字 (使用抗鋸齒向量字型，字字清楚大氣，絕不跑版)
+        M5.Lcd.setTextColor(txtColor, 0x09CD);
+        M5.Lcd.drawCentreString(cf.line1, cx, cy - 20, 2);
+        M5.Lcd.setTextColor(TFT_WHITE, 0x09CD);
+        M5.Lcd.drawCentreString(cf.line2, cx, cy + 2, 2);
     }
 
     // 底部指引

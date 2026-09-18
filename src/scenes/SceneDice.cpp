@@ -1,6 +1,6 @@
 /**
  * @file SceneDice.cpp
- * @brief 直式多面骰子盒實作：修復骰子下框被覆蓋問題、強化局部刷新
+ * @brief 直式多面骰子盒實作：修復進場 Title 遺失、修復多顆下框被吃、Title 佈局抗重疊
  */
 
 #include "scenes/SceneDice.h"
@@ -23,6 +23,20 @@ void SceneDice::init() {
         _diceResults[i] = random(1, DIE_FACES[_dieTypeIdx] + 1);
     }
     M5.Lcd.fillScreen(TFT_BLACK);
+
+    // 每次進入場景立即繪製頂部與底部靜態框架
+    M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 26, 0x2124);
+    M5.Lcd.setTextColor(COLOR_GOLD, 0x2124);
+    M5.Lcd.drawString("DICE", 8, 5, 2); // 簡稱 DICE，絕不撞右側
+
+    char specStr[10];
+    snprintf(specStr, sizeof(specStr), "%dd%d", _diceCount, DIE_FACES[_dieTypeIdx]);
+    M5.Lcd.setTextColor(TFT_WHITE, 0x2124);
+    M5.Lcd.drawRightString(specStr, SCREEN_WIDTH - 8, 6, 2);
+
+    M5.Lcd.drawFastHLine(6, 186, SCREEN_WIDTH - 12, 0x4208);
+    M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    M5.Lcd.drawCentreString("Joy L/R:d#  U/D:cnt", SCREEN_WIDTH / 2, 224, 1);
 }
 
 void SceneDice::rollDice(AudioManager& audio, LedManager& led) {
@@ -85,7 +99,7 @@ void SceneDice::update(InputManager& input, AudioManager& audio, LedManager& led
             if (DIE_FACES[_dieTypeIdx] == 20 && _diceCount == 1) {
                 if (_diceResults[0] == 20) {
                     audio.playCrit();
-                    led.flash(0, 255, 255, 5, 50); // 冰河青爆閃替代白光
+                    led.flash(0, 255, 255, 5, 50);
                 } else if (_diceResults[0] == 1) {
                     audio.playFumble();
                     led.flash(255, 0, 0, 3, 100);
@@ -106,63 +120,51 @@ void SceneDice::draw() {
     if (!_needsRedraw) return;
     _needsRedraw = false;
 
-    static uint8_t lastCount = 255;
-    static uint8_t lastType = 255;
-    if (lastCount != _diceCount || lastType != _dieTypeIdx) {
-        lastCount = _diceCount;
-        lastType = _dieTypeIdx;
-        M5.Lcd.fillScreen(TFT_BLACK);
+    // 更新頂部狀態 (確保永不重疊)
+    M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 26, 0x2124);
+    M5.Lcd.setTextColor(COLOR_GOLD, 0x2124);
+    M5.Lcd.drawString("DICE", 8, 5, 2);
 
-        M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 30, 0x2124);
-        M5.Lcd.setTextColor(COLOR_GOLD, 0x2124);
-        M5.Lcd.drawString("DICE ROLLER", 8, 4, 2);
-
-        char specStr[16];
-        snprintf(specStr, sizeof(specStr), "%dd%d", _diceCount, DIE_FACES[_dieTypeIdx]);
-        M5.Lcd.setTextColor(TFT_WHITE, 0x2124);
-        M5.Lcd.drawRightString(specStr, SCREEN_WIDTH - 8, 8, 2);
-
-        M5.Lcd.drawFastHLine(6, 186, SCREEN_WIDTH - 12, 0x4208);
-        M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        M5.Lcd.drawCentreString("Joy L/R:d#  U/D:cnt", SCREEN_WIDTH / 2, 224, 1);
-    }
+    char specStr[10];
+    snprintf(specStr, sizeof(specStr), "%dd%d", _diceCount, DIE_FACES[_dieTypeIdx]);
+    M5.Lcd.setTextColor(TFT_WHITE, 0x2124);
+    M5.Lcd.drawRightString(specStr, SCREEN_WIDTH - 8, 6, 2);
 
     int total = 0;
     for (uint8_t i = 0; i < _diceCount; i++) total += _diceResults[i];
 
+    // 清空動態骰子區 (Y: 28 ~ 184)
+    M5.Lcd.fillRect(0, 28, SCREEN_WIDTH, 156, TFT_BLACK);
+
     if (_diceCount == 1) {
         int cx = SCREEN_WIDTH / 2;
-        int cy = 104;
-        int size = 42; // 下邊緣在 cy + size = 146
+        int cy = 98;
+        int size = 40;
 
-        // 繪製完整外框
         M5.Lcd.drawRoundRect(cx - size, cy - size, size * 2, size * 2, 8, COLOR_GOLD);
-        // 只在內部填黑，絕對不破壞下框
         M5.Lcd.fillRoundRect(cx - size + 2, cy - size + 2, size * 2 - 4, size * 2 - 4, 6, TFT_BLACK);
 
         char numStr[8];
         snprintf(numStr, sizeof(numStr), "%d", _diceResults[0]);
-        M5.Lcd.setTextColor(TFT_WHITE, TFT_BLACK);
-        // 數字置中 (字型 4 放大或使用乾淨文字)
+        M5.Lcd.setTextColor(TFT_WHITE); // 透明文字背景，不破壞框線
         M5.Lcd.setTextSize(2);
-        M5.Lcd.drawCentreString(numStr, cx, cy - 24, 4);
+        M5.Lcd.drawCentreString(numStr, cx, cy - 22, 4);
         M5.Lcd.setTextSize(1);
 
-        // 清除下方提示區 (避開 cy + size，從 y = 152 開始清除，絕不擦掉下框！)
-        M5.Lcd.fillRect(0, 152, SCREEN_WIDTH, 26, TFT_BLACK);
         if (DIE_FACES[_dieTypeIdx] == 20 && !_isRolling) {
             if (_diceResults[0] == 20) {
-                M5.Lcd.setTextColor(TFT_GREEN, TFT_BLACK);
-                M5.Lcd.drawCentreString("CRITICAL!", cx, 154, 2);
+                M5.Lcd.setTextColor(TFT_GREEN);
+                M5.Lcd.drawCentreString("CRITICAL!", cx, 152, 2);
             } else if (_diceResults[0] == 1) {
-                M5.Lcd.setTextColor(TFT_RED, TFT_BLACK);
-                M5.Lcd.drawCentreString("FUMBLE!", cx, 154, 2);
+                M5.Lcd.setTextColor(TFT_RED);
+                M5.Lcd.drawCentreString("FUMBLE!", cx, 152, 2);
             }
         }
     } else {
-        int startY = 38;
+        // 多顆骰子：將高度增加至 38px，留出足夠邊距，底框永不被吃！
+        int startY = 32;
         int itemW = 56;
-        int itemH = 34;
+        int itemH = 38;
 
         for (uint8_t i = 0; i < _diceCount; i++) {
             int col = i % 2;
@@ -170,25 +172,28 @@ void SceneDice::draw() {
             int x = (col == 0) ? 8 : (SCREEN_WIDTH - itemW - 8);
             int y = startY + row * (itemH + 6);
 
-            M5.Lcd.fillRoundRect(x + 2, y + 2, itemW - 4, itemH - 4, 3, TFT_BLACK);
+            // 1. 先把內部填黑
+            M5.Lcd.fillRoundRect(x, y, itemW, itemH, 4, TFT_BLACK);
+            // 2. 畫上金色邊框
             M5.Lcd.drawRoundRect(x, y, itemW, itemH, 4, COLOR_GOLD);
 
+            // 3. 填入數字 (使用 Font 4，置中，透明背景絕不蓋住下框線)
             char numStr[8];
             snprintf(numStr, sizeof(numStr), "%d", _diceResults[i]);
-            M5.Lcd.setTextColor(TFT_WHITE, TFT_BLACK);
-            M5.Lcd.drawCentreString(numStr, x + itemW / 2, y + 8, 4);
+            M5.Lcd.setTextColor(TFT_WHITE);
+            M5.Lcd.drawCentreString(numStr, x + itemW / 2, y + 6, 4);
         }
     }
 
-    // 局部更新底部總計
-    M5.Lcd.fillRect(0, 190, SCREEN_WIDTH, 30, TFT_BLACK);
+    // 底部總計列
+    M5.Lcd.fillRect(0, 188, SCREEN_WIDTH, 30, TFT_BLACK);
     if (_diceCount > 1) {
         char totStr[20];
         snprintf(totStr, sizeof(totStr), "TOTAL: %d", total);
-        M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
+        M5.Lcd.setTextColor(COLOR_GOLD);
         M5.Lcd.drawCentreString(totStr, SCREEN_WIDTH / 2, 192, 4);
     } else {
-        M5.Lcd.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+        M5.Lcd.setTextColor(TFT_LIGHTGREY);
         M5.Lcd.drawCentreString("[SHAKE / PRESS]", SCREEN_WIDTH / 2, 196, 2);
     }
 }

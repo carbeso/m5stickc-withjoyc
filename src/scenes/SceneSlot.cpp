@@ -1,6 +1,6 @@
 /**
  * @file SceneSlot.cpp
- * @brief 3x3 搖桿下拉角子老虎機實作：移除金錢/賭博元素、7款生動幾何圖示與防閃爍設計
+ * @brief 3x3 搖桿下拉角子老虎機實作：右上角無意義文字刪除、動態中獎線數提示、標題防撞
  */
 
 #include "scenes/SceneSlot.h"
@@ -8,7 +8,7 @@
 const int CELL_W = 36;
 const int CELL_H = 40;
 const int START_X = 9;
-const int START_Y = 36;
+const int START_Y = 34;
 const int GAP_X = 4;
 const int GAP_Y = 4;
 
@@ -52,21 +52,18 @@ void SceneSlot::pullLever(AudioManager& audio, LedManager& led) {
 void SceneSlot::checkWinLines(AudioManager& audio, LedManager& led) {
     _winLinesMask = 0;
 
-    // 1. 檢查 3 橫線
     for (int r = 0; r < 3; r++) {
         if (_grid[0][r] == _grid[1][r] && _grid[1][r] == _grid[2][r]) {
             _winLinesMask |= (1 << r);
         }
     }
 
-    // 2. 檢查 3 直線
     for (int c = 0; c < 3; c++) {
         if (_grid[c][0] == _grid[c][1] && _grid[c][1] == _grid[c][2]) {
             _winLinesMask |= (1 << (3 + c));
         }
     }
 
-    // 3. 檢查 2 斜對角線
     if (_grid[0][0] == _grid[1][1] && _grid[1][1] == _grid[2][2]) {
         _winLinesMask |= (1 << 6);
     }
@@ -77,7 +74,7 @@ void SceneSlot::checkWinLines(AudioManager& audio, LedManager& led) {
     if (_winLinesMask > 0) {
         _hasWon = true;
         audio.playJackpot();
-        led.flash(255, 180, 0, 8, 60); // 暖金爆閃 (避開純白三色分離)
+        led.flash(255, 180, 0, 8, 60);
     } else {
         _hasWon = false;
         audio.playClick();
@@ -198,14 +195,24 @@ void SceneSlot::draw() {
     if (!_needsRedraw) return;
     _needsRedraw = false;
 
-    // 頂部狀態列：刪除金錢/賭博元素，只純粹顯示休閒拉霸名稱
-    M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 28, 0x18C3);
+    // 頂部狀態列：只顯示 SLOT 3x3，右側徹底刪除無意義文字，保持乾淨留白！
+    M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 26, 0x18C3);
     M5.Lcd.setTextColor(COLOR_GOLD, 0x18C3);
-    M5.Lcd.drawString("SLOT 3x3", 8, 6, 2);
-    M5.Lcd.setTextColor(COLOR_CYAN, 0x18C3);
-    M5.Lcd.drawRightString("8 LINES", SCREEN_WIDTH - 8, 8, 1);
+    M5.Lcd.drawString("SLOT 3x3", 8, 5, 2);
 
-    // 繪製 3x3 九宮格 (局部重繪，無整面閃爍)
+    // 只有在中獎時，右側動態顯示實際中獎線數 (如 2 LINES!)
+    if (_hasWon) {
+        uint8_t winCount = 0;
+        for (int i = 0; i < 8; i++) {
+            if (_winLinesMask & (1 << i)) winCount++;
+        }
+        char winLineStr[16];
+        snprintf(winLineStr, sizeof(winLineStr), "%d %s!", winCount, (winCount > 1) ? "LINES" : "LINE");
+        M5.Lcd.setTextColor(TFT_GREEN, 0x18C3);
+        M5.Lcd.drawRightString(winLineStr, SCREEN_WIDTH - 8, 6, 2);
+    }
+
+    // 繪製 3x3 九宮格
     bool flashState = (_flashTimer / 8) % 2 == 0;
     for (int c = 0; c < 3; c++) {
         for (int r = 0; r < 3; r++) {
@@ -224,7 +231,7 @@ void SceneSlot::draw() {
         }
     }
 
-    // 底部狀態 (局部重繪，絕不整面閃黑)
+    // 底部狀態
     M5.Lcd.fillRect(0, 172, SCREEN_WIDTH, 68, TFT_BLACK);
     M5.Lcd.drawFastHLine(8, 172, SCREEN_WIDTH - 16, 0x39E7);
 
@@ -235,8 +242,6 @@ void SceneSlot::draw() {
     } else if (_hasWon) {
         M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
         M5.Lcd.drawCentreString("*** JACKPOT! ***", SCREEN_WIDTH / 2, 182, 2);
-        M5.Lcd.setTextColor(TFT_GREEN, TFT_BLACK);
-        M5.Lcd.drawCentreString("MATCH 3 WIN!", SCREEN_WIDTH / 2, 202, 2);
     } else {
         M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
         M5.Lcd.drawCentreString("PULL JOY DOWN", SCREEN_WIDTH / 2, 184, 2);

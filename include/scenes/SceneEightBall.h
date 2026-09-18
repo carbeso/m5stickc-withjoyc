@@ -1,12 +1,17 @@
 /**
  * @file SceneEightBall.h
- * @brief 直式粒子神秘八號球場景標頭檔
+ * @brief 純英文經典神秘八號球場景標頭檔 (已完全移除異常之中文點陣能力)
  */
 
 #pragma once
 
 #include "scenes/Scene.h"
-#include "CustomChineseFont.h"
+
+struct ClassicFortune {
+    const char* line1;     // 第一行英文 (大字)
+    const char* line2;     // 第二行英文 (補充)
+    uint8_t category;      // 0: 吉, 1: 惑, 2: 凶
+};
 
 class SceneEightBall : public Scene {
 public:
@@ -18,12 +23,10 @@ public:
 
 private:
     uint8_t _fortuneIdx;
-    bool _isRevealing;      // 粒子凝聚中
-    bool _isRevealed;       // 已完整浮現
+    bool _isRevealing;
+    bool _isRevealed;
     uint32_t _revealStartTime;
-    uint8_t _revealStep;    // 粒子凝聚階段 (0 ~ 16)
     bool _needsRedraw;
 
     void startDivination(AudioManager& audio, LedManager& led);
-    void drawChineseChar(int x, int y, const char* utf8Char, uint8_t maxRow, uint16_t color);
 };

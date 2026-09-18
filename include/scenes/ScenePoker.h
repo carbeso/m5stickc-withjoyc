@@ -1,6 +1,6 @@
 /**
  * @file ScenePoker.h
- * @brief 極簡大字幸運撲克抽牌場景標頭檔
+ * @brief 極簡大字幸運撲克抽牌場景標頭檔：加入抽牌跳動期待感動畫與標題防重疊
  */
 
 #pragma once
@@ -21,18 +21,21 @@ public:
     GameScene getSceneId() const override { return SCENE_POKER; }
 
 private:
-    bool _includeJokers;    // 是否加入鬼牌 (預設 false)
+    bool _includeJokers;
     Card _deck[54];
     uint8_t _deckSize;
-    uint8_t _deckIndex;     // 目前已抽至第幾張
+    uint8_t _deckIndex;
 
     Card _currentCard;
-    bool _isCardRevealed;   // 目前是否已翻開
+    bool _isCardRevealed;
     bool _needsRedraw;
 
-    uint32_t _btnAPressTime;
-    uint8_t _btnAClickCount;
+    // 抽牌跳動期待感動畫
+    bool _isDrawingAnim;
+    uint32_t _animStartTime;
+    uint32_t _lastTickTime;
+    Card _tempAnimCard;
 
     void shuffleDeck();
-    void drawCard(AudioManager& audio, LedManager& led);
+    void startDrawCard(AudioManager& audio, LedManager& led);
 };
