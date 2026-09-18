@@ -1,6 +1,6 @@
 /**
  * @file SceneMenu.cpp
- * @brief 全域主選單場景實作：支援 Button B 切換靜音、搖桿左右切換亮度
+ * @brief 全域主選單場景實作：支援 Button B 切換靜音、搖桿左右切換亮度、3卡片平滑滾動視窗
  */
 
 #include "scenes/SceneMenu.h"
@@ -18,14 +18,16 @@ const MenuItem MENU_ITEMS[] = {
     {"MAGIC 8-BALL", "20 ORACLES", COLOR_PURPLE, SCENE_EIGHT_BALL},
     {"ROULETTE", "EUROPEAN 0-36", COLOR_CYAN, SCENE_ROULETTE},
     {"SLOT 3x3", "PULL JOY DOWN", TFT_GREEN, SCENE_SLOT},
-    {"COIN TOSS", "1-5 COINS", COLOR_GOLD, SCENE_COIN}
+    {"COIN TOSS", "1-5 COINS", COLOR_GOLD, SCENE_COIN},
+    {"ROCK PAPER SCIS", "1-2 HANDS DUEL", 0xFBE0, SCENE_RPS}
 };
 const uint8_t MENU_COUNT = sizeof(MENU_ITEMS) / sizeof(MENU_ITEMS[0]);
+const uint8_t VISIBLE_CARDS = 3; // 一頁顯示 3 張寬敞大卡片，告別文字擠壓
 
 const uint8_t BRIGHTNESS_VALUES[] = {35, 70, 100};
 
 SceneMenu::SceneMenu()
-    : _selectedIdx(0), _needsRedraw(true), _brightnessLevel(1), _cachedMuteState(false),
+    : _selectedIdx(0), _topIdx(0), _needsRedraw(true), _brightnessLevel(1), _cachedMuteState(false),
       _lastBatCheckTime(0), _cachedBatPct(100), _cachedIsCharging(false) {}
 
 void SceneMenu::applyBrightness() {
@@ -85,12 +87,18 @@ void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led
         _needsRedraw = true;
     }
 
-    // 2. 搖桿上下推：切換選中遊戲項目
+    // 2. 搖桿上下推：切換選中遊戲項目與視窗滾動
     if (input.joyPushedUp) {
         if (_selectedIdx > 0) {
             _selectedIdx--;
         } else {
             _selectedIdx = MENU_COUNT - 1;
+        }
+        // 視窗滾動追隨
+        if (_selectedIdx < _topIdx) {
+            _topIdx = _selectedIdx;
+        } else if (_selectedIdx == MENU_COUNT - 1) {
+            _topIdx = MENU_COUNT - VISIBLE_CARDS;
         }
         audio.playTick();
         _needsRedraw = true;
@@ -99,6 +107,12 @@ void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led
             _selectedIdx++;
         } else {
             _selectedIdx = 0;
+        }
+        // 視窗滾動追隨
+        if (_selectedIdx >= _topIdx + VISIBLE_CARDS) {
+            _topIdx = _selectedIdx - VISIBLE_CARDS + 1;
+        } else if (_selectedIdx == 0) {
+            _topIdx = 0;
         }
         audio.playTick();
         _needsRedraw = true;
@@ -122,6 +136,11 @@ void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led
     // 4. 晃動機身：隨機選取遊戲
     if (input.isShaken) {
         _selectedIdx = random(0, MENU_COUNT);
+        if (_selectedIdx < _topIdx) {
+            _topIdx = _selectedIdx;
+        } else if (_selectedIdx >= _topIdx + VISIBLE_CARDS) {
+            _topIdx = _selectedIdx - VISIBLE_CARDS + 1;
+        }
         audio.playDiceRoll();
         _needsRedraw = true;
     }
@@ -152,7 +171,8 @@ void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led
         (_selectedIdx == 2) ? 0x9900FF :
         (_selectedIdx == 3) ? 0x00D0FF :
         (_selectedIdx == 4) ? 0x00FF33 :
-                              0xFFCC00
+        (_selectedIdx == 5) ? 0xFFCC00 :
+                              0xFF8800
     );
 }
 
@@ -189,37 +209,57 @@ void SceneMenu::draw() {
     snprintf(brtStr, sizeof(brtStr), "BRT: %d%%", BRIGHTNESS_VALUES[_brightnessLevel]);
     M5.Lcd.drawRightString(brtStr, SCREEN_WIDTH - 6, 21, 1);
 
-    // 2. 中央卡片區 (Y: 37 ~ 186，6個卡片各高 23px，間距 25px)
-    for (uint8_t i = 0; i < MENU_COUNT; i++) {
-        int y = 37 + i * 25;
-        bool isSel = (i == _selectedIdx);
+    // 2. 中央大卡片區 (Y: 39 ~ 183，3 個卡片各高 42px，間距 6px)
+    int cardW = SCREEN_WIDTH - 18; // 留 6px 給右側滾動條
+
+    for (uint8_t r = 0; r < VISIBLE_CARDS; r++) {
+        uint8_t itemIdx = _topIdx + r;
+        if (itemIdx >= MENU_COUNT) break;
+
+        int y = 39 + r * 48;
+        bool isSel = (itemIdx == _selectedIdx);
 
         if (isSel) {
-            M5.Lcd.fillRoundRect(6, y, SCREEN_WIDTH - 12, 23, 3, MENU_ITEMS[i].color);
-            M5.Lcd.setTextColor(TFT_BLACK, MENU_ITEMS[i].color);
-            M5.Lcd.drawString(MENU_ITEMS[i].name, 12, y + 2, 2);
-            M5.Lcd.setTextColor(0x18C3, MENU_ITEMS[i].color);
-            M5.Lcd.drawString(MENU_ITEMS[i].subtext, 12, y + 13, 1);
+            M5.Lcd.fillRoundRect(6, y, cardW, 42, 4, MENU_ITEMS[itemIdx].color);
+            M5.Lcd.setTextColor(TFT_BLACK, MENU_ITEMS[itemIdx].color);
+            M5.Lcd.drawString(MENU_ITEMS[itemIdx].name, 12, y + 4, 2);
+            M5.Lcd.setTextColor(0x18C3, MENU_ITEMS[itemIdx].color);
+            M5.Lcd.drawString(MENU_ITEMS[itemIdx].subtext, 12, y + 23, 1);
 
             M5.Lcd.fillTriangle(
-                SCREEN_WIDTH - 16, y + 6,
-                SCREEN_WIDTH - 16, y + 17,
-                SCREEN_WIDTH - 9, y + 11,
+                cardW - 8, y + 14,
+                cardW - 8, y + 28,
+                cardW - 2, y + 21,
                 TFT_BLACK
             );
         } else {
-            M5.Lcd.drawRoundRect(6, y, SCREEN_WIDTH - 12, 23, 3, 0x39E7);
+            M5.Lcd.drawRoundRect(6, y, cardW, 42, 4, 0x39E7);
             M5.Lcd.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-            M5.Lcd.drawString(MENU_ITEMS[i].name, 12, y + 2, 2);
+            M5.Lcd.drawString(MENU_ITEMS[itemIdx].name, 12, y + 4, 2);
             M5.Lcd.setTextColor(0x7BEF, TFT_BLACK);
-            M5.Lcd.drawString(MENU_ITEMS[i].subtext, 12, y + 13, 1);
+            M5.Lcd.drawString(MENU_ITEMS[itemIdx].subtext, 12, y + 23, 1);
         }
     }
 
-    // 3. 底部操作指引 (Y: 190 ~ 238)
+    // 3. 右側垂直捲動條 (Y: 39 ~ 177，總高 138px)
+    int trackX = SCREEN_WIDTH - 8;
+    int trackY = 39;
+    int trackH = 138;
+    M5.Lcd.drawFastVLine(trackX + 1, trackY, trackH, 0x2965);
+
+    int thumbH = (trackH * VISIBLE_CARDS) / MENU_COUNT; // 約 59px
+    int maxTop = MENU_COUNT - VISIBLE_CARDS;
+    int thumbY = trackY + (_topIdx * (trackH - thumbH)) / maxTop;
+    M5.Lcd.fillRoundRect(trackX, thumbY, 3, thumbH, 1, COLOR_CYAN);
+
+    // 4. 底部操作指引 (Y: 190 ~ 238)
     M5.Lcd.drawFastHLine(8, 190, SCREEN_WIDTH - 16, 0x39E7);
+
+    char enterStr[32];
+    snprintf(enterStr, sizeof(enterStr), "[PRESS A / JOY] (%d/%d)", _selectedIdx + 1, MENU_COUNT);
     M5.Lcd.setTextColor(TFT_CYAN, TFT_BLACK);
-    M5.Lcd.drawCentreString("[PRESS A / JOY] ENTER", SCREEN_WIDTH / 2, 196, 1);
+    M5.Lcd.drawCentreString(enterStr, SCREEN_WIDTH / 2, 196, 1);
+
     M5.Lcd.setTextColor(TFT_YELLOW, TFT_BLACK);
     M5.Lcd.drawCentreString("BtnB: Mute  Joy L/R: Bright", SCREEN_WIDTH / 2, 210, 1);
     M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);

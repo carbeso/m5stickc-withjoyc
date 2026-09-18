@@ -79,10 +79,13 @@ void SceneEightBall::update(InputManager& input, AudioManager& audio, LedManager
         uint32_t now = millis();
         uint32_t elapsed = now - _revealStartTime;
 
-        // 冒泡期間每 250ms 定時發出擬真水聲
-        if (now - _lastBubbleTime > 250) {
+        // 冒泡期間每 250ms 定時發出擬真水聲與微幅波紋更新
+        if (now - _lastBubbleTime > 120) {
             _lastBubbleTime = now;
-            audio.playBubble();
+            _needsRedraw = true;
+            if ((now / 250) != ((now - 120) / 250)) {
+                audio.playBubble();
+            }
         }
 
         // 持續 3000ms (3 秒) 翻騰冒泡後再開籤解答！
@@ -140,11 +143,27 @@ void SceneEightBall::draw() {
     int cy = 105;
 
     if (_isRevealing) {
-        // 浮現翻滾動效：水底倒三角漸現
-        M5.Lcd.fillTriangle(cx - 45, cy - 40, cx + 45, cy - 40, cx, cy + 45, 0x0113);
-        M5.Lcd.drawTriangle(cx - 45, cy - 40, cx + 45, cy - 40, cx, cy + 45, 0x07FF);
-        M5.Lcd.setTextColor(COLOR_CYAN, 0x0113);
-        M5.Lcd.drawCentreString("SEEKING...", cx, cy - 12, 2);
+        // 占卜旋轉中：持續顯示八號球本身，伴隨水底氣泡與微波動效
+        int radius = 44;
+        // 依照時間微幅晃動 1~2 像素增添水波真實感
+        int wobbleX = ((millis() / 120) % 3) - 1;
+        int wobbleY = ((millis() / 160) % 3) - 1;
+        int ballX = cx + wobbleX;
+        int ballY = cy + wobbleY;
+
+        M5.Lcd.fillCircle(ballX, ballY, radius, 0x18C3);
+        M5.Lcd.drawCircle(ballX, ballY, radius, COLOR_CYAN);
+        M5.Lcd.fillCircle(ballX, ballY, 18, TFT_WHITE);
+        M5.Lcd.setTextColor(TFT_BLACK, TFT_WHITE);
+        M5.Lcd.drawCentreString("8", ballX, ballY - 14, 4);
+
+        // 周圍隨機微氣泡
+        M5.Lcd.drawCircle(cx - 38, cy - 35, 3, COLOR_CYAN);
+        M5.Lcd.drawCircle(cx + 36, cy + 30, 2, COLOR_CYAN);
+        M5.Lcd.drawCircle(cx + 40, cy - 25, 4, COLOR_CYAN);
+
+        M5.Lcd.setTextColor(COLOR_CYAN, TFT_BLACK);
+        M5.Lcd.drawCentreString("THINKING...", cx, 165, 2);
     } else {
         // 占卜結果：依正向、否定、模糊分別繪製專屬幾何幾何浮牌
         const ClassicFortune& cf = CLASSIC_FORTUNES[_fortuneIdx];

@@ -54,9 +54,6 @@ void SceneDice::update(InputManager& input, AudioManager& audio, LedManager& led
         return;
     }
 
-    // 檢查搖桿或按鍵是否處於按壓/推持狀態
-    bool isEngaged = (input.isJoyPulledDown || input.isJoyBtnHeld || input.isBtnAHeld);
-
     if (!_isRolling) {
         // 設定微調 (無推持時)
         if (input.joyPushedLeft) {
@@ -81,8 +78,8 @@ void SceneDice::update(InputManager& input, AudioManager& audio, LedManager& led
             _needsRedraw = true;
         }
 
-        // 啟動擲骰：必須是明確按鍵/搖桿/甩動脈衝觸發，絕不因常態推持誤觸
-        if (input.btnAPressed || input.joyBtnPressed || input.joyPulledDown || input.isShaken) {
+        // 啟動擲骰：由 Button A、搖桿中心鍵或甩動觸發（取消下拉搖桿，避免與減少顆數衝突）
+        if (input.btnAPressed || input.joyBtnPressed || input.isShaken) {
             rollDice(true, audio, led);
         }
     } else {

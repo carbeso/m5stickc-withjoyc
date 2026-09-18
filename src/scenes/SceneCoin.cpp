@@ -48,17 +48,17 @@ void SceneCoin::update(InputManager& input, AudioManager& audio, LedManager& led
     }
 
     if (!_isFlipping) {
-        // 非拋擲狀態下，左右切換硬幣數量 (1 ~ 5 枚)
-        if (input.joyX < -JOY_DEADZONE || input.btnBPressed) {
+        // 非拋擲狀態下，左右切換硬幣數量 (1 ~ 5 枚，單次邊緣觸發手感確實)
+        if (input.joyPushedLeft) {
             if (_coinCount > 1) {
                 _coinCount--;
-                audio.playClick();
+                audio.playTick();
                 _needsRedraw = true;
             }
-        } else if (input.joyX > JOY_DEADZONE) {
+        } else if (input.joyPushedRight) {
             if (_coinCount < 5) {
                 _coinCount++;
-                audio.playClick();
+                audio.playTick();
                 _needsRedraw = true;
             }
         }

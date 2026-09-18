@@ -30,6 +30,7 @@ enum GameScene {
     SCENE_ROULETTE,         // 遊戲四：直向垂直幸運輪盤
     SCENE_SLOT,             // 遊戲五：3x3 搖桿下拉角子老虎機
     SCENE_COIN,             // 遊戲六：1~5枚擲硬幣
+    SCENE_RPS,              // 遊戲七：剪刀石頭布 (Rock Paper Scissors)
     SCENE_COUNT
 };
 

@@ -1,6 +1,6 @@
 /**
  * @file main.cpp
- * @brief M5StickC Plus 與 MiniJoyC 五合一掌上型紓壓玩具韌體主程式
+ * @brief M5StickC Plus 與 MiniJoyC 七合一掌上型紓壓玩具韌體主程式
  * @details 螢幕固定為直向顯示 (135x240，Rotation 0)，搖桿在上操控。
  */
 
@@ -17,6 +17,7 @@
 #include "scenes/SceneRoulette.h"
 #include "scenes/SceneSlot.h"
 #include "scenes/SceneCoin.h"
+#include "scenes/SceneRPS.h"
 
 InputManager input;
 AudioManager audio;
@@ -29,6 +30,7 @@ SceneEightBall sceneEightBall;
 SceneRoulette sceneRoulette;
 SceneSlot sceneSlot;
 SceneCoin sceneCoin;
+SceneRPS sceneRPS;
 
 Scene* currentScene = &sceneMenu;
 
@@ -41,6 +43,7 @@ void switchScene(GameScene target) {
         case SCENE_ROULETTE:    currentScene = &sceneRoulette; break;
         case SCENE_SLOT:        currentScene = &sceneSlot; break;
         case SCENE_COIN:        currentScene = &sceneCoin; break;
+        case SCENE_RPS:         currentScene = &sceneRPS; break;
         default:                currentScene = &sceneMenu; break;
     }
     currentScene->clearNextScene();
@@ -69,7 +72,7 @@ void setup() {
     M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
     M5.Lcd.drawCentreString("FIDGET TOY", SCREEN_WIDTH / 2, 85, 4);
     M5.Lcd.setTextColor(COLOR_CYAN, TFT_BLACK);
-    M5.Lcd.drawCentreString("6-in-1 System", SCREEN_WIDTH / 2, 120, 2);
+    M5.Lcd.drawCentreString("7-in-1 System", SCREEN_WIDTH / 2, 120, 2);
     audio.playClick();
     led.setColor(255, 200, 50);
 
