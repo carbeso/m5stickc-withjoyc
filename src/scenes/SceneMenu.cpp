@@ -24,16 +24,55 @@ const uint8_t MENU_COUNT = sizeof(MENU_ITEMS) / sizeof(MENU_ITEMS[0]);
 const uint8_t BRIGHTNESS_VALUES[] = {35, 70, 100};
 
 SceneMenu::SceneMenu()
-    : _selectedIdx(0), _needsRedraw(true), _brightnessLevel(1), _cachedMuteState(false) {}
+    : _selectedIdx(0), _needsRedraw(true), _brightnessLevel(1), _cachedMuteState(false),
+      _lastBatCheckTime(0), _cachedBatPct(100), _cachedIsCharging(false) {}
 
 void SceneMenu::applyBrightness() {
     M5.Axp.ScreenBreath(BRIGHTNESS_VALUES[_brightnessLevel]);
+}
+
+void SceneMenu::updateBatteryInfo() {
+    float vbat = M5.Axp.GetBatVoltage();
+    float vbus = M5.Axp.GetVBusVoltage();
+    _cachedIsCharging = (vbus > 4.2f);
+
+    uint8_t pct = 0;
+    if (vbat >= 4.12f) pct = 100;
+    else if (vbat >= 4.00f) pct = 90 + (uint8_t)((vbat - 4.00f) / 0.12f * 10.0f);
+    else if (vbat >= 3.85f) pct = 65 + (uint8_t)((vbat - 3.85f) / 0.15f * 25.0f);
+    else if (vbat >= 3.70f) pct = 30 + (uint8_t)((vbat - 3.70f) / 0.15f * 35.0f);
+    else if (vbat >= 3.55f) pct = 10 + (uint8_t)((vbat - 3.55f) / 0.15f * 20.0f);
+    else if (vbat >= 3.40f) pct = 2 + (uint8_t)((vbat - 3.40f) / 0.15f * 8.0f);
+    else pct = 0;
+
+    if (pct > 100) pct = 100;
+    _cachedBatPct = pct;
+}
+
+void SceneMenu::drawBatteryIcon(int x, int y, uint8_t pct, bool charging) {
+    // 繪製小電池外框 (寬 14px，高 8px)
+    M5.Lcd.drawRoundRect(x, y, 13, 8, 1, TFT_LIGHTGREY);
+    M5.Lcd.drawFastVLine(x + 13, y + 2, 4, TFT_LIGHTGREY);
+
+    int fillW = (pct * 9) / 100;
+    if (fillW < 1 && pct > 0) fillW = 1;
+    if (fillW > 9) fillW = 9;
+
+    uint16_t barColor = charging ? COLOR_CYAN :
+                        (pct > 50) ? TFT_GREEN :
+                        (pct > 20) ? COLOR_GOLD : TFT_RED;
+
+    if (fillW > 0) {
+        M5.Lcd.fillRect(x + 2, y + 2, fillW, 4, barColor);
+    }
 }
 
 void SceneMenu::init() {
     _needsRedraw = true;
     _nextScene = SCENE_COUNT;
     applyBrightness();
+    updateBatteryInfo();
+    _lastBatCheckTime = millis();
     M5.Lcd.fillScreen(TFT_BLACK);
 }
 
@@ -93,6 +132,18 @@ void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led
         return;
     }
 
+    // 6. 每 1500ms 定時更新電量百分比
+    uint32_t now = millis();
+    if (now - _lastBatCheckTime > 1500) {
+        _lastBatCheckTime = now;
+        uint8_t prevPct = _cachedBatPct;
+        bool prevChg = _cachedIsCharging;
+        updateBatteryInfo();
+        if (prevPct != _cachedBatPct || prevChg != _cachedIsCharging) {
+            _needsRedraw = true;
+        }
+    }
+
     // 設定 LED 燈色配合當前選中遊戲
     led.setHexColor(
         (_selectedIdx == 0) ? 0xFFAA00 :
@@ -110,17 +161,31 @@ void SceneMenu::draw() {
     M5.Lcd.fillScreen(TFT_BLACK);
 
     // 1. 頂部狀態列 (Y: 0 ~ 34)
-    M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 32, 0x18C3);
-    M5.Lcd.setTextColor(TFT_WHITE, 0x18C3);
-    M5.Lcd.drawString("FIDGET OS", 8, 4, 2);
+    M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 34, 0x18C3);
 
-    // 顯示聲音與亮度狀態 (例如 [SND 70%])
-    char sysInfo[18];
-    snprintf(sysInfo, sizeof(sysInfo), "%s %d%%",
-             _cachedMuteState ? "[MUTE]" : "[SND]",
-             BRIGHTNESS_VALUES[_brightnessLevel]);
+    // 第一行：左側系統名稱，右側電量百分比與圖標
+    M5.Lcd.setTextColor(TFT_WHITE, 0x18C3);
+    M5.Lcd.drawString("FIDGET OS", 6, 3, 2);
+
+    char batStr[10];
+    if (_cachedIsCharging) {
+        snprintf(batStr, sizeof(batStr), "+%d%%", _cachedBatPct);
+    } else {
+        snprintf(batStr, sizeof(batStr), "%d%%", _cachedBatPct);
+    }
+    uint16_t batTxtColor = _cachedIsCharging ? COLOR_CYAN :
+                           (_cachedBatPct > 50) ? TFT_GREEN :
+                           (_cachedBatPct > 20) ? COLOR_GOLD : TFT_RED;
+    M5.Lcd.setTextColor(batTxtColor, 0x18C3);
+    M5.Lcd.drawRightString(batStr, SCREEN_WIDTH - 21, 3, 2);
+    drawBatteryIcon(SCREEN_WIDTH - 19, 7, _cachedBatPct, _cachedIsCharging);
+
+    // 第二行：左側聲音狀態 [SND/MUTE]，右側亮度 BRT: 70%
     M5.Lcd.setTextColor(COLOR_GOLD, 0x18C3);
-    M5.Lcd.drawRightString(sysInfo, SCREEN_WIDTH - 6, 6, 1);
+    M5.Lcd.drawString(_cachedMuteState ? "[MUTE]" : "[SND ON]", 6, 21, 1);
+    char brtStr[14];
+    snprintf(brtStr, sizeof(brtStr), "BRT: %d%%", BRIGHTNESS_VALUES[_brightnessLevel]);
+    M5.Lcd.drawRightString(brtStr, SCREEN_WIDTH - 6, 21, 1);
 
     // 2. 中央卡片區 (Y: 38 ~ 188)
     for (uint8_t i = 0; i < MENU_COUNT; i++) {

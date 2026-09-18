@@ -21,5 +21,12 @@ private:
     uint8_t _brightnessLevel; // 0: 35%, 1: 70%, 2: 100%
     bool _cachedMuteState;
 
+    uint32_t _lastBatCheckTime;
+    uint8_t _cachedBatPct;
+    bool _cachedIsCharging;
+
     void applyBrightness();
+    void updateBatteryInfo();
+    void drawBatteryIcon(int x, int y, uint8_t pct, bool charging);
 };
+
