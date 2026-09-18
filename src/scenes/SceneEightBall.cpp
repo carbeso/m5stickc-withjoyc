@@ -34,22 +34,25 @@ const ClassicFortune CLASSIC_FORTUNES[] = {
 const uint8_t CLASSIC_COUNT = sizeof(CLASSIC_FORTUNES) / sizeof(CLASSIC_FORTUNES[0]);
 
 SceneEightBall::SceneEightBall()
-    : _fortuneIdx(0), _isRevealing(false), _isRevealed(false),
-      _revealStartTime(0), _needsRedraw(true) {}
+    : _fortuneIdx(0), _isRevealing(false), _isRevealed(false), _triggeredByBtn(false),
+      _revealStartTime(0), _lastBubbleTime(0), _needsRedraw(true) {}
 
 void SceneEightBall::init() {
     _needsRedraw = true;
     _isRevealing = false;
     _isRevealed = false;
+    _triggeredByBtn = false;
     _nextScene = SCENE_COUNT;
     M5.Lcd.fillScreen(TFT_BLACK);
 }
 
-void SceneEightBall::startDivination(AudioManager& audio, LedManager& led) {
+void SceneEightBall::startDivination(bool byBtn, AudioManager& audio, LedManager& led) {
     _fortuneIdx = random(0, CLASSIC_COUNT);
     _isRevealing = true;
     _isRevealed = false;
+    _triggeredByBtn = byBtn;
     _revealStartTime = millis();
+    _lastBubbleTime = millis();
 
     audio.playBubble();
     led.setRainbowMode(true);
@@ -63,13 +66,41 @@ void SceneEightBall::update(InputManager& input, AudioManager& audio, LedManager
         return;
     }
 
-    if (!_isRevealing && (input.isShaken || input.btnAPressed || input.joyBtnPressed)) {
-        startDivination(audio, led);
-    }
+    bool isEngaged = (input.isJoyBtnHeld || input.isBtnAHeld);
 
-    if (_isRevealing) {
-        uint32_t elapsed = millis() - _revealStartTime;
-        if (elapsed > 450) {
+    if (!_isRevealing) {
+        // 啟動占卜：按著搖桿/Button A，或持續用力甩動
+        if (isEngaged) {
+            startDivination(true, audio, led);
+        } else if (input.isActivelyShaking) {
+            startDivination(false, audio, led);
+        }
+    } else {
+        // 翻騰冒泡進行中
+        uint32_t now = millis();
+        uint32_t elapsed = now - _revealStartTime;
+
+        // 連續冒泡音效
+        if (now - _lastBubbleTime > 180) {
+            _lastBubbleTime = now;
+            audio.playBubble();
+        }
+
+        // 停止判定：
+        // 1. 若為按鍵觸發：放開按鍵且超過 250ms -> 開籤
+        // 2. 若為體感甩動：手部幾乎靜止 (isNearlyStill) 且超過 350ms -> 開籤
+        bool readyToReveal = false;
+        if (_triggeredByBtn) {
+            if (!isEngaged && (elapsed > 250)) {
+                readyToReveal = true;
+            }
+        } else {
+            if (input.isNearlyStill && (elapsed > 350)) {
+                readyToReveal = true;
+            }
+        }
+
+        if (readyToReveal) {
             _isRevealing = false;
             _isRevealed = true;
 

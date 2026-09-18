@@ -1,6 +1,6 @@
 /**
  * @file SceneRoulette.cpp
- * @brief 直向垂直幸運輪盤實作：頂部標題防重疊、俐落煞車與無閃爍體驗
+ * @brief 直向垂直幸運輪盤實作：支援搖桿拉持漸入漸出、體感立刻旋轉與靜止定格動力學
  */
 
 #include "scenes/SceneRoulette.h"
@@ -30,7 +30,7 @@ void SceneRoulette::init() {
 
 void SceneRoulette::spinRoulette(AudioManager& audio, LedManager& led) {
     _isSpinning = true;
-    _stripSpeed = 22.0f + ((float)random(0, 100) / 10.0f);
+    _stripSpeed = 24.0f; // 體感立刻旋轉 (Instant Spin)
     audio.playDiceRoll();
     led.setRainbowMode(true);
 }
@@ -42,40 +42,63 @@ void SceneRoulette::update(InputManager& input, AudioManager& audio, LedManager&
         return;
     }
 
-    if (!_isSpinning && (input.joyPulledDown || input.joyBtnPressed || input.btnAPressed || input.isShaken)) {
-        spinRoulette(audio, led);
-    }
+    bool isEngaged = (input.isJoyPulledDown || input.isJoyBtnHeld || input.isBtnAHeld);
 
-    if (_isSpinning) {
+    if (!_isSpinning) {
+        // 搖桿下拉著：漸入加速啟動 (Ease-In)
+        if (isEngaged) {
+            _isSpinning = true;
+            _stripSpeed = 6.0f; // 從較低初速起步加速
+            audio.playDiceRoll();
+            led.setRainbowMode(true);
+        } else if (input.isActivelyShaking) {
+            // 體感甩動：立刻最高速旋轉 (Instant Spin)
+            spinRoulette(audio, led);
+        }
+    } else {
+        // 旋轉進行中
         _stripPos += _stripSpeed;
-        _stripSpeed *= 0.94f;
 
         float maxPos = 37 * ITEM_HEIGHT;
         while (_stripPos >= maxPos) _stripPos -= maxPos;
 
+        // 齒輪卡榫音效
         if (millis() - _lastTickTime > (uint32_t)constrain(300.0f / (_stripSpeed + 1.0f), 20.0f, 180.0f)) {
             _lastTickTime = millis();
             audio.playTick();
         }
 
-        if (_stripSpeed < 1.2f) {
-            _isSpinning = false;
-            _stripSpeed = 0.0f;
+        // 動力學狀態處理：
+        if (isEngaged) {
+            // 玩家持續拉著搖桿：漸入加速並維持最高轉速 (Ease-In Acceleration)
+            if (_stripSpeed < 26.0f) _stripSpeed += 1.2f;
+        } else if (input.isActivelyShaking) {
+            // 玩家持續甩動機身：維持極速
+            _stripSpeed = 25.0f;
+        } else {
+            // 玩家已放開搖桿且手部未在甩動：漸出減速 (Ease-Out Deceleration)
+            _stripSpeed *= 0.94f;
 
-            int centerIdx = ((int)(_stripPos + ITEM_HEIGHT / 2) / ITEM_HEIGHT) % 37;
-            _stripPos = centerIdx * ITEM_HEIGHT;
-            _targetIndex = centerIdx;
+            // 停定判定
+            if (_stripSpeed < 1.2f) {
+                _isSpinning = false;
+                _stripSpeed = 0.0f;
 
-            const RoulettePocket& winPocket = WHEEL_POCKETS[_targetIndex];
-            if (winPocket.colorType == 0) {
-                audio.playCrit();
-                led.flash(0, 255, 0, 4, 60);
-            } else if (winPocket.colorType == 1) {
-                audio.playClick();
-                led.setColor(255, 0, 0);
-            } else {
-                audio.playClick();
-                led.setColor(0, 200, 255);
+                int centerIdx = ((int)(_stripPos + ITEM_HEIGHT / 2) / ITEM_HEIGHT) % 37;
+                _stripPos = centerIdx * ITEM_HEIGHT;
+                _targetIndex = centerIdx;
+
+                const RoulettePocket& winPocket = WHEEL_POCKETS[_targetIndex];
+                if (winPocket.colorType == 0) {
+                    audio.playCrit();
+                    led.flash(0, 255, 0, 4, 60);
+                } else if (winPocket.colorType == 1) {
+                    audio.playClick();
+                    led.setColor(255, 0, 0);
+                } else {
+                    audio.playClick();
+                    led.setColor(0, 200, 255);
+                }
             }
         }
         _needsRedraw = true;
@@ -86,7 +109,6 @@ void SceneRoulette::draw() {
     if (!_needsRedraw) return;
     _needsRedraw = false;
 
-    // 清除中央動態捲軸區
     M5.Lcd.fillRect(0, 26, SCREEN_WIDTH, 168, TFT_BLACK);
 
     int centerY = 110;
@@ -115,7 +137,7 @@ void SceneRoulette::draw() {
     M5.Lcd.fillTriangle(4, centerY - 8, 4, centerY + 8, 15, centerY, COLOR_GOLD);
     M5.Lcd.fillTriangle(SCREEN_WIDTH - 4, centerY - 8, SCREEN_WIDTH - 4, centerY + 8, SCREEN_WIDTH - 15, centerY, COLOR_GOLD);
 
-    // 頂部狀態列：左 ROULETTE，右 0-36，兩者相隔 > 30px，絕不重疊！
+    // 頂部狀態列
     M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 26, 0x18C3);
     M5.Lcd.setTextColor(COLOR_CYAN, 0x18C3);
     M5.Lcd.drawString("ROULETTE", 8, 5, 2);
@@ -143,5 +165,5 @@ void SceneRoulette::draw() {
     }
 
     M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    M5.Lcd.drawCentreString("Joy DOWN / A: Spin", SCREEN_WIDTH / 2, 224, 1);
+    M5.Lcd.drawCentreString("Hold DOWN to Spin", SCREEN_WIDTH / 2, 224, 1);
 }

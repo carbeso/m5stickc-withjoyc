@@ -1,6 +1,6 @@
 /**
  * @file SceneSlot.cpp
- * @brief 3x3 搖桿下拉角子老虎機實作：右上角無意義文字刪除、動態中獎線數提示、標題防撞
+ * @brief 3x3 搖桿下拉角子老虎機實作：拉桿拉持持續旋轉、放開依序煞車、持續甩動動力學
  */
 
 #include "scenes/SceneSlot.h"
@@ -14,7 +14,7 @@ const int GAP_Y = 4;
 
 SceneSlot::SceneSlot()
     : _spinStartTime(0), _hasWon(false), _winLinesMask(0),
-      _score(0), _needsRedraw(true), _lastTickTime(0), _flashTimer(0) {
+      _releaseTime(0), _needsRedraw(true), _lastTickTime(0), _flashTimer(0) {
     for (int c = 0; c < 3; c++) {
         _colSpinning[c] = false;
         _colOffset[c] = 0;
@@ -29,6 +29,7 @@ void SceneSlot::init() {
     _nextScene = SCENE_COUNT;
     _hasWon = false;
     _winLinesMask = 0;
+    _releaseTime = 0;
     for (int c = 0; c < 3; c++) {
         _colSpinning[c] = false;
         for (int r = 0; r < 3; r++) {
@@ -41,6 +42,7 @@ void SceneSlot::init() {
 void SceneSlot::pullLever(AudioManager& audio, LedManager& led) {
     for (int c = 0; c < 3; c++) _colSpinning[c] = true;
     _spinStartTime = millis();
+    _releaseTime = 0;
     _hasWon = false;
     _winLinesMask = 0;
 
@@ -90,32 +92,22 @@ void SceneSlot::update(InputManager& input, AudioManager& audio, LedManager& led
     }
 
     bool anySpinning = (_colSpinning[0] || _colSpinning[1] || _colSpinning[2]);
+    bool isEngaged = (input.isJoyPulledDown || input.isJoyBtnHeld || input.isBtnAHeld);
 
-    if (!anySpinning && (input.joyPulledDown || input.btnAPressed || input.joyBtnPressed || input.isShaken)) {
-        pullLever(audio, led);
-    }
+    if (!anySpinning) {
+        // 搖桿向下拉住或甩動：啟動滾動
+        if (isEngaged || input.isActivelyShaking) {
+            pullLever(audio, led);
+        }
+    } else {
+        uint32_t now = millis();
 
-    if (anySpinning) {
-        uint32_t elapsed = millis() - _spinStartTime;
-
-        if (millis() - _lastTickTime > 40) {
-            _lastTickTime = millis();
+        if (now - _lastTickTime > 40) {
+            _lastTickTime = now;
             audio.playTick();
         }
 
-        if (elapsed > 550 && _colSpinning[0]) {
-            _colSpinning[0] = false;
-            audio.playClick();
-        }
-        if (elapsed > 900 && _colSpinning[1]) {
-            _colSpinning[1] = false;
-            audio.playClick();
-        }
-        if (elapsed > 1250 && _colSpinning[2]) {
-            _colSpinning[2] = false;
-            checkWinLines(audio, led);
-        }
-
+        // 滾輪更新
         for (int c = 0; c < 3; c++) {
             if (_colSpinning[c]) {
                 for (int r = 0; r < 3; r++) {
@@ -124,6 +116,37 @@ void SceneSlot::update(InputManager& input, AudioManager& audio, LedManager& led
             }
         }
         _needsRedraw = true;
+
+        // 煞車時序控制：
+        // 只要玩家還拉著搖桿不放、或手部還在甩動，就維持 3 輪全速滾動，重置煞車起始時間！
+        if (isEngaged || input.isActivelyShaking) {
+            _releaseTime = 0; // 重置
+            _colSpinning[0] = true;
+            _colSpinning[1] = true;
+            _colSpinning[2] = true;
+        } else {
+            // 剛放開拉桿或手部停止晃動
+            if (_releaseTime == 0) {
+                _releaseTime = now;
+            }
+
+            uint32_t timeSinceRelease = now - _releaseTime;
+
+            // 依序煞車 (放開後 200ms -> 450ms -> 700ms)
+            if (timeSinceRelease > 200 && _colSpinning[0]) {
+                _colSpinning[0] = false;
+                audio.playClick();
+            }
+            if (timeSinceRelease > 450 && _colSpinning[1]) {
+                _colSpinning[1] = false;
+                audio.playClick();
+            }
+            if (timeSinceRelease > 700 && _colSpinning[2]) {
+                _colSpinning[2] = false;
+                _releaseTime = 0;
+                checkWinLines(audio, led);
+            }
+        }
     }
 
     if (_hasWon) {
@@ -195,12 +218,11 @@ void SceneSlot::draw() {
     if (!_needsRedraw) return;
     _needsRedraw = false;
 
-    // 頂部狀態列：只顯示 SLOT 3x3，右側徹底刪除無意義文字，保持乾淨留白！
+    // 頂部狀態列
     M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 26, 0x18C3);
     M5.Lcd.setTextColor(COLOR_GOLD, 0x18C3);
     M5.Lcd.drawString("SLOT 3x3", 8, 5, 2);
 
-    // 只有在中獎時，右側動態顯示實際中獎線數 (如 2 LINES!)
     if (_hasWon) {
         uint8_t winCount = 0;
         for (int i = 0; i < 8; i++) {
@@ -246,7 +268,7 @@ void SceneSlot::draw() {
         M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
         M5.Lcd.drawCentreString("PULL JOY DOWN", SCREEN_WIDTH / 2, 184, 2);
         M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        M5.Lcd.drawCentreString("to Spin 3x3 Slots", SCREEN_WIDTH / 2, 204, 1);
+        M5.Lcd.drawCentreString("Hold to Spin, Release", SCREEN_WIDTH / 2, 204, 1);
     }
 
     M5.Lcd.setTextColor(0x52AA, TFT_BLACK);

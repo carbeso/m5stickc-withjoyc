@@ -1,6 +1,6 @@
 /**
  * @file SceneDice.cpp
- * @brief 直式多面骰子盒實作：修復進場 Title 遺失、修復多顆下框被吃、Title 佈局抗重疊
+ * @brief 直式多面骰子盒實作：支援搖桿壓持漸入漸出、體感持續甩動與靜止定格動力學
  */
 
 #include "scenes/SceneDice.h"
@@ -11,36 +11,37 @@ const uint8_t DIE_TYPE_COUNT = sizeof(DIE_FACES) / sizeof(DIE_FACES[0]);
 
 SceneDice::SceneDice()
     : _dieTypeIdx(1), _diceCount(1),
-      _isRolling(false), _rollStartTime(0), _lastTickTime(0), _needsRedraw(true) {
+      _isRolling(false), _triggeredByJoy(false), _rollStartTime(0), _lastTickTime(0), _needsRedraw(true) {
     for (int i = 0; i < 6; i++) _diceResults[i] = 1;
 }
 
 void SceneDice::init() {
     _needsRedraw = true;
     _isRolling = false;
+    _triggeredByJoy = false;
     _nextScene = SCENE_COUNT;
     for (int i = 0; i < 6; i++) {
         _diceResults[i] = random(1, DIE_FACES[_dieTypeIdx] + 1);
     }
     M5.Lcd.fillScreen(TFT_BLACK);
 
-    // 每次進入場景立即繪製頂部與底部靜態框架
     M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 26, 0x2124);
     M5.Lcd.setTextColor(COLOR_GOLD, 0x2124);
-    M5.Lcd.drawString("DICE", 8, 5, 2); // 簡稱 DICE，絕不撞右側
+    M5.Lcd.drawString("DICE", 8, 5, 2);
 
     char specStr[10];
     snprintf(specStr, sizeof(specStr), "%dd%d", _diceCount, DIE_FACES[_dieTypeIdx]);
     M5.Lcd.setTextColor(TFT_WHITE, 0x2124);
-    M5.Lcd.drawRightString(specStr, SCREEN_WIDTH - 8, 6, 2);
+    M5.Lcd.drawRightString(specStr, SCREEN_WIDTH - 8, 5, 2);
 
     M5.Lcd.drawFastHLine(6, 186, SCREEN_WIDTH - 12, 0x4208);
     M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
     M5.Lcd.drawCentreString("Joy L/R:d#  U/D:cnt", SCREEN_WIDTH / 2, 224, 1);
 }
 
-void SceneDice::rollDice(AudioManager& audio, LedManager& led) {
+void SceneDice::rollDice(bool byJoy, AudioManager& audio, LedManager& led) {
     _isRolling = true;
+    _triggeredByJoy = byJoy;
     _rollStartTime = millis();
     audio.playDiceRoll();
     led.setRainbowMode(true);
@@ -53,7 +54,11 @@ void SceneDice::update(InputManager& input, AudioManager& audio, LedManager& led
         return;
     }
 
+    // 檢查搖桿或按鍵是否處於按壓/推持狀態
+    bool isEngaged = (input.isJoyPulledDown || input.isJoyBtnHeld || input.isBtnAHeld);
+
     if (!_isRolling) {
+        // 設定微調 (無推持時)
         if (input.joyPushedLeft) {
             if (_dieTypeIdx > 0) _dieTypeIdx--;
             else _dieTypeIdx = DIE_TYPE_COUNT - 1;
@@ -76,12 +81,23 @@ void SceneDice::update(InputManager& input, AudioManager& audio, LedManager& led
             _needsRedraw = true;
         }
 
-        if (input.btnAPressed || input.joyBtnPressed || input.isShaken) {
-            rollDice(audio, led);
+        // 啟動擲骰：
+        // 1. 搖桿壓持 (漸入)：開始翻滾
+        // 2. 體感甩動 (立刻)：瞬間高速翻滾
+        if (isEngaged) {
+            rollDice(true, audio, led);
+        } else if (input.isActivelyShaking) {
+            rollDice(false, audio, led);
         }
     } else {
+        // 滾動進行中
         uint32_t now = millis();
-        if (now - _lastTickTime > 45) {
+        uint32_t elapsed = now - _rollStartTime;
+
+        // 漸入動力學：壓著搖桿時頻率漸快 (從 80ms 逐漸加速到 35ms)
+        uint32_t interval = (isEngaged && elapsed < 400) ? map(elapsed, 0, 400, 85, 35) : 35;
+
+        if (now - _lastTickTime > interval) {
             _lastTickTime = now;
             for (uint8_t i = 0; i < _diceCount; i++) {
                 _diceResults[i] = random(1, DIE_FACES[_dieTypeIdx] + 1);
@@ -90,7 +106,21 @@ void SceneDice::update(InputManager& input, AudioManager& audio, LedManager& led
             _needsRedraw = true;
         }
 
-        if (now - _rollStartTime > 550) {
+        // 停止判定：
+        // (A) 若為搖桿操作：放開搖桿且翻滾超過 250ms 即煞停
+        // (B) 若為體感甩動：手部幾乎靜止 (isNearlyStill) 且超過 350ms 後定格
+        bool readyToStop = false;
+        if (_triggeredByJoy) {
+            if (!isEngaged && (elapsed > 250)) {
+                readyToStop = true;
+            }
+        } else {
+            if (!input.isActivelyShaking && input.isNearlyStill && (elapsed > 350)) {
+                readyToStop = true;
+            }
+        }
+
+        if (readyToStop) {
             _isRolling = false;
             for (uint8_t i = 0; i < _diceCount; i++) {
                 _diceResults[i] = random(1, DIE_FACES[_dieTypeIdx] + 1);
@@ -120,7 +150,7 @@ void SceneDice::draw() {
     if (!_needsRedraw) return;
     _needsRedraw = false;
 
-    // 更新頂部狀態 (確保永不重疊)
+    // 頂部狀態列
     M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 26, 0x2124);
     M5.Lcd.setTextColor(COLOR_GOLD, 0x2124);
     M5.Lcd.drawString("DICE", 8, 5, 2);
@@ -146,7 +176,7 @@ void SceneDice::draw() {
 
         char numStr[8];
         snprintf(numStr, sizeof(numStr), "%d", _diceResults[0]);
-        M5.Lcd.setTextColor(TFT_WHITE); // 透明文字背景，不破壞框線
+        M5.Lcd.setTextColor(TFT_WHITE);
         M5.Lcd.setTextSize(2);
         M5.Lcd.drawCentreString(numStr, cx, cy - 22, 4);
         M5.Lcd.setTextSize(1);
@@ -161,7 +191,6 @@ void SceneDice::draw() {
             }
         }
     } else {
-        // 多顆骰子：將高度增加至 38px，留出足夠邊距，底框永不被吃！
         int startY = 32;
         int itemW = 56;
         int itemH = 38;
@@ -172,12 +201,9 @@ void SceneDice::draw() {
             int x = (col == 0) ? 8 : (SCREEN_WIDTH - itemW - 8);
             int y = startY + row * (itemH + 6);
 
-            // 1. 先把內部填黑
             M5.Lcd.fillRoundRect(x, y, itemW, itemH, 4, TFT_BLACK);
-            // 2. 畫上金色邊框
             M5.Lcd.drawRoundRect(x, y, itemW, itemH, 4, COLOR_GOLD);
 
-            // 3. 填入數字 (使用 Font 4，置中，透明背景絕不蓋住下框線)
             char numStr[8];
             snprintf(numStr, sizeof(numStr), "%d", _diceResults[i]);
             M5.Lcd.setTextColor(TFT_WHITE);
@@ -194,6 +220,6 @@ void SceneDice::draw() {
         M5.Lcd.drawCentreString(totStr, SCREEN_WIDTH / 2, 192, 4);
     } else {
         M5.Lcd.setTextColor(TFT_LIGHTGREY);
-        M5.Lcd.drawCentreString("[SHAKE / PRESS]", SCREEN_WIDTH / 2, 196, 2);
+        M5.Lcd.drawCentreString(_isRolling ? "ROLLING..." : "HOLD / SHAKE", SCREEN_WIDTH / 2, 196, 2);
     }
 }

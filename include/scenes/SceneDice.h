@@ -21,9 +21,10 @@ private:
     uint8_t _diceResults[6];
 
     bool _isRolling;
+    bool _triggeredByJoy;   // 是否由搖桿/按鈕觸發 (true: 搖桿放開即停; false: 體感甩動等待靜止)
     uint32_t _rollStartTime;
     uint32_t _lastTickTime;
     bool _needsRedraw;
 
-    void rollDice(AudioManager& audio, LedManager& led);
+    void rollDice(bool byJoy, AudioManager& audio, LedManager& led);
 };

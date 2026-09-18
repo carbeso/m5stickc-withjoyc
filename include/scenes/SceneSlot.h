@@ -35,7 +35,7 @@ private:
 
     bool _hasWon;
     uint8_t _winLinesMask;  // 8 條線中獎遮罩 (位元 0~7)
-    uint32_t _score;
+    uint32_t _releaseTime;  // 放開拉桿的時間戳記 (非靜態，防止狀態殘留)
     bool _needsRedraw;
     uint32_t _lastTickTime;
     uint8_t _flashTimer;

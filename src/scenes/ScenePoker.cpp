@@ -1,6 +1,6 @@
 /**
  * @file ScenePoker.cpp
- * @brief 極簡大字幸運撲克實作：加入抽牌高速洗牌跳動動畫、標題防重疊
+ * @brief 極簡大字幸運撲克實作：單抽/銷牌雙模式、牌堆抽空手動重置、搖桿推持持續洗牌與甩動立刻動效
  */
 
 #include "scenes/ScenePoker.h"
@@ -10,25 +10,28 @@ const char* VALUE_NAMES[] = {
 };
 
 ScenePoker::ScenePoker()
-    : _includeJokers(false), _deckSize(52), _deckIndex(0),
-      _isCardRevealed(false), _needsRedraw(true),
-      _isDrawingAnim(false), _animStartTime(0), _lastTickTime(0) {
+    : _singleMode(false), _includeJokers(false), _deckSize(52), _deckIndex(0),
+      _isCardRevealed(false), _deckEmpty(false), _needsRedraw(true),
+      _isShuffling(false), _triggeredByJoy(false),
+      _animStartTime(0), _lastTickTime(0) {
     _currentCard = {0, 1};
     _tempAnimCard = {0, 1};
 }
 
 void ScenePoker::init() {
     _needsRedraw = true;
-    _isDrawingAnim = false;
+    _isShuffling = false;
+    _deckEmpty = false;
     _nextScene = SCENE_COUNT;
-    shuffleDeck();
+    resetAndShuffle();
     M5.Lcd.fillScreen(TFT_BLACK);
 }
 
-void ScenePoker::shuffleDeck() {
+void ScenePoker::resetAndShuffle() {
     _deckSize = _includeJokers ? 54 : 52;
     _deckIndex = 0;
     _isCardRevealed = false;
+    _deckEmpty = false;
 
     uint8_t idx = 0;
     for (uint8_t s = 0; s < 4; s++) {
@@ -51,15 +54,48 @@ void ScenePoker::shuffleDeck() {
     _needsRedraw = true;
 }
 
-void ScenePoker::startDrawCard(AudioManager& audio, LedManager& led) {
-    if (_deckIndex >= _deckSize) {
-        shuffleDeck();
+void ScenePoker::startShuffle(bool byJoy, AudioManager& audio, LedManager& led) {
+    if (_isShuffling) return;
+
+    // 若牌堆已空，不可再抽，切換為 EMPTY 畫面需先手動重置
+    if (!_singleMode && _deckIndex >= _deckSize) {
+        _deckEmpty = true;
+        audio.playFumble();
+        _needsRedraw = true;
+        return;
     }
 
-    _isDrawingAnim = true;
+    _isShuffling = true;
+    _triggeredByJoy = byJoy;
     _animStartTime = millis();
     audio.playDiceRoll();
     led.setRainbowMode(true);
+}
+
+void ScenePoker::finalizeDraw(AudioManager& audio, LedManager& led) {
+    _isShuffling = false;
+
+    if (_singleMode) {
+        // 單抽模式：全牌堆純隨機單抽
+        uint8_t s = random(0, _includeJokers ? 5 : 4);
+        uint8_t v = (s == 4) ? random(1, 3) : random(1, 14);
+        _currentCard = {s, v};
+    } else {
+        // 銷牌模式：按牌堆依序開出 (抽到最後一張亦完整秀出，下次再抽時才提示 EMPTY)
+        _currentCard = _deck[_deckIndex++];
+    }
+
+    _isCardRevealed = true;
+    audio.playCardDraw();
+
+    if (_currentCard.suit == 1 || _currentCard.suit == 2) {
+        led.setColor(255, 0, 0);
+    } else if (_currentCard.suit == 0 || _currentCard.suit == 3) {
+        led.setColor(0, 200, 255);
+    } else {
+        led.flash(220, 0, 255, 3, 70);
+    }
+    _needsRedraw = true;
 }
 
 void ScenePoker::update(InputManager& input, AudioManager& audio, LedManager& led) {
@@ -69,43 +105,61 @@ void ScenePoker::update(InputManager& input, AudioManager& audio, LedManager& le
         return;
     }
 
-    if (!_isDrawingAnim) {
-        if (input.joyPushedLeft || input.joyPushedRight) {
-            _includeJokers = !_includeJokers;
-            audio.playClick();
-            shuffleDeck();
+    // 牌堆已空時手動按 Button A 或中心鍵重置
+    if (_deckEmpty && (input.btnAPressed || input.joyBtnPressed)) {
+        resetAndShuffle();
+        audio.playDiceRoll();
+        _needsRedraw = true;
+        return;
+    }
+
+    if (!_isShuffling) {
+        // 搖桿向左推：切換抽牌模式 (銷牌 DECK ↔ 單抽 SINGLE)
+        if (input.joyPushedLeft) {
+            _singleMode = !_singleMode;
+            audio.playTick();
+            resetAndShuffle();
             _needsRedraw = true;
         }
 
-        if (input.joyPushedUp || input.joyBtnPressed || input.btnAPressed || input.isShaken) {
-            startDrawCard(audio, led);
+        // 搖桿向右推：切換鬼牌開關 (JOKER ON ↔ OFF)
+        if (input.joyPushedRight) {
+            _includeJokers = !_includeJokers;
+            audio.playClick();
+            resetAndShuffle();
+            _needsRedraw = true;
+        }
+
+        // 搖桿向上推著或按鍵壓著：啟動洗牌
+        if (input.isJoyPushedUp || input.isJoyBtnHeld || input.isBtnAHeld) {
+            startShuffle(true, audio, led);
+        } else if (input.isActivelyShaking) {
+            // 體感甩動：立刻啟動持續洗牌
+            startShuffle(false, audio, led);
         }
     } else {
+        // 洗牌持續進行中
         uint32_t now = millis();
-        // 抽牌跳動中：每 50ms 隨機變換一張牌面，製造強烈期待感
-        if (now - _lastTickTime > 50) {
+        if (now - _lastTickTime > 45) {
             _lastTickTime = now;
             _tempAnimCard.suit = random(0, _includeJokers ? 5 : 4);
-            _tempAnimCard.value = random(1, 14);
+            _tempAnimCard.value = (_tempAnimCard.suit == 4) ? random(1, 3) : random(1, 14);
             audio.playTick();
             _needsRedraw = true;
         }
 
-        // 400ms 後定格揭牌
-        if (now - _animStartTime > 400) {
-            _isDrawingAnim = false;
-            _currentCard = _deck[_deckIndex++];
-            _isCardRevealed = true;
-            audio.playCardDraw();
-
-            if (_currentCard.suit == 1 || _currentCard.suit == 2) {
-                led.setColor(255, 0, 0);
-            } else if (_currentCard.suit == 0 || _currentCard.suit == 3) {
-                led.setColor(0, 200, 255);
-            } else {
-                led.flash(220, 0, 255, 3, 70);
+        // 停止判定：
+        // 1. 若為搖桿觸發：玩家放開搖桿 (不再向上推、未按鍵) 且已滿 250ms -> 煞車停定！
+        if (_triggeredByJoy) {
+            bool stillHolding = (input.isJoyPushedUp || input.isJoyBtnHeld || input.isBtnAHeld);
+            if (!stillHolding && (now - _animStartTime > 250)) {
+                finalizeDraw(audio, led);
             }
-            _needsRedraw = true;
+        } else {
+            // 2. 若為體感觸發：機身幾乎靜止 (isNearlyStill) 且已滿 350ms -> 停定定格！
+            if (input.isNearlyStill && (now - _animStartTime > 350)) {
+                finalizeDraw(audio, led);
+            }
         }
     }
 }
@@ -147,28 +201,38 @@ void ScenePoker::draw() {
     if (!_needsRedraw) return;
     _needsRedraw = false;
 
-    // 頂部狀態列：左 POKER，右精簡 52/54 [JK]，兩者相隔 > 40px，絕不重疊！
+    // 頂部狀態列：左側 POKER，右側顯示模式與張數
     M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 26, 0x18C3);
     M5.Lcd.setTextColor(TFT_WHITE, 0x18C3);
     M5.Lcd.drawString("POKER", 8, 5, 2);
 
-    char infoStr[12];
-    snprintf(infoStr, sizeof(infoStr), "%d %s",
-             _deckSize - _deckIndex,
-             _includeJokers ? "[JK]" : "");
+    char infoStr[14];
+    if (_singleMode) {
+        snprintf(infoStr, sizeof(infoStr), "%s", _includeJokers ? "SGL [JK]" : "SINGLE");
+    } else {
+        snprintf(infoStr, sizeof(infoStr), "%d/%d", _deckSize - _deckIndex, _deckSize);
+    }
     M5.Lcd.setTextColor(COLOR_GOLD, 0x18C3);
-    M5.Lcd.drawRightString(infoStr, SCREEN_WIDTH - 6, 7, 1);
+    M5.Lcd.drawRightString(infoStr, SCREEN_WIDTH - 8, 6, 2);
 
     // 清除中央牌面區
-    M5.Lcd.fillRect(0, 26, SCREEN_WIDTH, 170, TFT_BLACK);
+    M5.Lcd.fillRect(0, 26, SCREEN_WIDTH, 168, TFT_BLACK);
 
-    Card showCard = _isDrawingAnim ? _tempAnimCard : _currentCard;
+    Card showCard = _isShuffling ? _tempAnimCard : _currentCard;
 
-    if (!_isCardRevealed && !_isDrawingAnim) {
+    if (_deckEmpty && !_isShuffling) {
+        // 牌堆已抽空：明確顯示 EMPTY，提示手動重置！
+        M5.Lcd.setTextColor(TFT_RED, TFT_BLACK);
+        M5.Lcd.drawCentreString("[ EMPTY ]", SCREEN_WIDTH / 2, 75, 4);
+        M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
+        M5.Lcd.drawCentreString("DECK FINISHED", SCREEN_WIDTH / 2, 110, 2);
+        M5.Lcd.setTextColor(TFT_WHITE, TFT_BLACK);
+        M5.Lcd.drawCentreString("PRESS A TO RESET", SCREEN_WIDTH / 2, 135, 2);
+    } else if (!_isCardRevealed && !_isShuffling) {
         M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
         M5.Lcd.drawCentreString("[ READY ]", SCREEN_WIDTH / 2, 85, 4);
         M5.Lcd.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-        M5.Lcd.drawCentreString("Push UP / Press", SCREEN_WIDTH / 2, 120, 2);
+        M5.Lcd.drawCentreString("Push UP & Hold", SCREEN_WIDTH / 2, 120, 2);
     } else {
         bool isRed = (showCard.suit == 1 || showCard.suit == 2 || (showCard.suit == 4 && showCard.value == 2));
         uint16_t themeColor = isRed ? TFT_RED : TFT_WHITE;
@@ -179,7 +243,6 @@ void ScenePoker::draw() {
             M5.Lcd.drawCentreString("JOKER", SCREEN_WIDTH / 2, 105, 4);
         } else {
             drawPokerSuit(SCREEN_WIDTH / 2, 65, showCard.suit, themeColor);
-
             M5.Lcd.setTextColor(themeColor, TFT_BLACK);
             M5.Lcd.setTextSize(2);
             M5.Lcd.drawCentreString(VALUE_NAMES[showCard.value], SCREEN_WIDTH / 2, 105, 4);
@@ -188,9 +251,9 @@ void ScenePoker::draw() {
     }
 
     // 底部指引
-    M5.Lcd.drawFastHLine(8, 196, SCREEN_WIDTH - 16, 0x39E7);
+    M5.Lcd.drawFastHLine(8, 194, SCREEN_WIDTH - 16, 0x39E7);
     M5.Lcd.setTextColor(COLOR_CYAN, TFT_BLACK);
-    M5.Lcd.drawCentreString("Joy UP / A: DRAW", SCREEN_WIDTH / 2, 204, 2);
+    M5.Lcd.drawCentreString("UP/A: DRAW (Hold)", SCREEN_WIDTH / 2, 200, 2);
     M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    M5.Lcd.drawCentreString("Joy L/R: Toggle Joker", SCREEN_WIDTH / 2, 224, 1);
+    M5.Lcd.drawCentreString("Joy L:Mode  R:Joker", SCREEN_WIDTH / 2, 222, 1);
 }

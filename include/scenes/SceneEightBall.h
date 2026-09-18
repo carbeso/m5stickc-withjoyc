@@ -25,8 +25,11 @@ private:
     uint8_t _fortuneIdx;
     bool _isRevealing;
     bool _isRevealed;
+    bool _triggeredByBtn;
     uint32_t _revealStartTime;
+    uint32_t _lastBubbleTime;
     bool _needsRedraw;
 
-    void startDivination(AudioManager& audio, LedManager& led);
+    void startDivination(bool byBtn, AudioManager& audio, LedManager& led);
 };
+

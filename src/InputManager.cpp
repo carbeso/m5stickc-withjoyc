@@ -1,19 +1,21 @@
 /**
  * @file InputManager.cpp
- * @brief 輸入管理器實作：調高甩動門檻至真正用力甩動，徹底防止日常持握誤觸
+ * @brief 輸入管理器實作：支援搖桿持續按壓/推拉、放開邊緣偵測與持續體感/靜止動力學判斷
  */
 
 #include "InputManager.h"
 
 InputManager::InputManager()
     : joyX(0), joyY(0),
+      isJoyPulledDown(false), isJoyPushedUp(false), isJoyBtnHeld(false), isBtnAHeld(false),
       joyBtnPressed(false), btnAPressed(false), btnBPressed(false), btnBLongPressed(false),
       joyPulledDown(false), joyPushedUp(false), joyPushedLeft(false), joyPushedRight(false),
-      isShaken(false),
+      joyReleased(false),
+      isActivelyShaking(false), isNearlyStill(true), isShaken(false),
       _prevJoyBtn(false), _prevPulledDown(false), _prevPushedUp(false),
-      _prevPushedLeft(false), _prevPushedRight(false),
+      _prevPushedLeft(false), _prevPushedRight(false), _prevJoyEngaged(false),
       _btnBPressedTime(0), _btnBHandled(false),
-      _lastAx(0), _lastAy(0), _lastAz(0), _lastShakeTime(0) {}
+      _lastAx(0), _lastAy(0), _lastAz(0), _lastActiveShakeTime(0) {}
 
 bool InputManager::begin() {
     bool ret = _joyc.begin(&Wire, MINI_JOYC_ADDR, HAT_I2C_SDA, HAT_I2C_SCL, 400000L);
@@ -23,6 +25,7 @@ bool InputManager::begin() {
 }
 
 void InputManager::update() {
+    // 重置單幀邊緣脈衝
     joyBtnPressed = false;
     btnAPressed = false;
     btnBPressed = false;
@@ -31,37 +34,50 @@ void InputManager::update() {
     joyPushedUp = false;
     joyPushedLeft = false;
     joyPushedRight = false;
+    joyReleased = false;
     isShaken = false;
 
-    // 讀取搖桿數值並修正 Y 軸方向
+    // 1. 讀取搖桿並修正 Y 軸方向
     joyX = (int8_t)_joyc.getPOSValue(POS_X, _8bit);
     joyY = -((int8_t)_joyc.getPOSValue(POS_Y, _8bit));
 
     if (abs(joyX) < JOY_DEADZONE) joyX = 0;
     if (abs(joyY) < JOY_DEADZONE) joyY = 0;
 
-    bool currentJoyBtn = _joyc.getButtonStatus();
-    if (currentJoyBtn && !_prevJoyBtn) {
-        joyBtnPressed = true;
+    // 2. 搖桿中心按鍵狀態
+    bool currJoyBtn = _joyc.getButtonStatus();
+    isJoyBtnHeld = currJoyBtn;
+    if (currJoyBtn && !_prevJoyBtn) joyBtnPressed = true;
+    _prevJoyBtn = currJoyBtn;
+
+    // 3. 搖桿持續方向狀態
+    isJoyPulledDown = (joyY > JOY_TRIGGER_PULL);
+    isJoyPushedUp = (joyY < -JOY_TRIGGER_PULL);
+    bool isLeft = (joyX < -JOY_TRIGGER_PULL);
+    bool isRight = (joyX > JOY_TRIGGER_PULL);
+
+    // 4. 方向邊緣觸發
+    if (isJoyPulledDown && !_prevPulledDown) joyPulledDown = true;
+    _prevPulledDown = isJoyPulledDown;
+
+    if (isJoyPushedUp && !_prevPushedUp) joyPushedUp = true;
+    _prevPushedUp = isJoyPushedUp;
+
+    if (isLeft && !_prevPushedLeft) joyPushedLeft = true;
+    _prevPushedLeft = isLeft;
+
+    if (isRight && !_prevPushedRight) joyPushedRight = true;
+    _prevPushedRight = isRight;
+
+    // 5. 搖桿從推持狀態回彈放開偵測 (Joy Released)
+    bool joyEngaged = (isJoyPulledDown || isJoyPushedUp || isLeft || isRight || isJoyBtnHeld);
+    if (!joyEngaged && _prevJoyEngaged) {
+        joyReleased = true; // 放開搖桿
     }
-    _prevJoyBtn = currentJoyBtn;
+    _prevJoyEngaged = joyEngaged;
 
-    bool currPulledDown = (joyY > JOY_TRIGGER_PULL);
-    if (currPulledDown && !_prevPulledDown) joyPulledDown = true;
-    _prevPulledDown = currPulledDown;
-
-    bool currPushedUp = (joyY < -JOY_TRIGGER_PULL);
-    if (currPushedUp && !_prevPushedUp) joyPushedUp = true;
-    _prevPushedUp = currPushedUp;
-
-    bool currPushedLeft = (joyX < -JOY_TRIGGER_PULL);
-    if (currPushedLeft && !_prevPushedLeft) joyPushedLeft = true;
-    _prevPushedLeft = currPushedLeft;
-
-    bool currPushedRight = (joyX > JOY_TRIGGER_PULL);
-    if (currPushedRight && !_prevPushedRight) joyPushedRight = true;
-    _prevPushedRight = currPushedRight;
-
+    // 6. 實體按鍵
+    isBtnAHeld = M5.BtnA.isPressed();
     if (M5.BtnA.wasPressed()) btnAPressed = true;
 
     if (M5.BtnB.wasPressed()) {
@@ -78,7 +94,7 @@ void InputManager::update() {
         if (!_btnBHandled) btnBPressed = true;
     }
 
-    // 調高體感門檻：必須刻意用力甩動機身才觸發
+    // 7. 持續體感甩動與靜止狀態動力學 (Continuous Shake & Stillness Detection)
     float gx = 0, gy = 0, gz = 0;
     float ax = 0, ay = 0, az = 0;
     M5.Imu.getGyroData(&gx, &gy, &gz);
@@ -90,9 +106,24 @@ void InputManager::update() {
     _lastAy = ay;
     _lastAz = az;
 
-    // 角速度 > 450 deg/s 或瞬時加速度差 > 3.2G，冷卻時間拉長至 900ms
-    if ((gyroMag > 450.0f || deltaA > 3.2f) && (millis() - _lastShakeTime > 900)) {
+    uint32_t now = millis();
+
+    // 判定持續激烈甩動
+    if (gyroMag > 350.0f || deltaA > 2.5f) {
+        _lastActiveShakeTime = now;
+        isActivelyShaking = true;
+        isNearlyStill = false;
+    } else {
+        // 若已超過 280ms 無大動作，脫離激烈甩動狀態
+        if (now - _lastActiveShakeTime > 280) {
+            isActivelyShaking = false;
+        }
+        // 若角速度極低，判定為幾乎靜止
+        isNearlyStill = (gyroMag < 90.0f && deltaA < 0.6f);
+    }
+
+    // 單次邊緣觸發脈衝 (配合較嚴格門檻)
+    if (isActivelyShaking && (now - _lastActiveShakeTime < 40)) {
         isShaken = true;
-        _lastShakeTime = millis();
     }
 }
