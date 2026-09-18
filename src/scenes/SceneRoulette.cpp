@@ -17,7 +17,8 @@ const int ITEM_HEIGHT = 38;
 
 SceneRoulette::SceneRoulette()
     : _stripPos(0.0f), _stripSpeed(0.0f), _isSpinning(false),
-      _targetIndex(0), _needsRedraw(true), _lastTickTime(0), _spinStartTime(0) {}
+      _targetIndex(0), _needsRedraw(true), _lastTickTime(0), _spinStartTime(0),
+      _cruiseDuration(2500) {}
 
 void SceneRoulette::init() {
     _needsRedraw = true;
@@ -31,8 +32,8 @@ void SceneRoulette::init() {
 
 void SceneRoulette::spinRoulette(AudioManager& audio, LedManager& led) {
     _isSpinning = true;
-    _stripSpeed = 24.0f; // 體感立刻旋轉 (Instant Spin)
     _spinStartTime = millis();
+    _cruiseDuration = random(1700, 5200); // 隨機巡航時長：加上煞停滑行，總時長約 2.5 ~ 6.0 秒隨機！
     audio.playDiceRoll();
     led.setRainbowMode(true);
 }
@@ -52,6 +53,7 @@ void SceneRoulette::update(InputManager& input, AudioManager& audio, LedManager&
             _isSpinning = true;
             _spinStartTime = millis();
             _stripSpeed = input.isShaken ? 24.0f : 12.0f;
+            _cruiseDuration = random(1700, 5200); // 隨機 2.5 ~ 6.0 秒總時長
             audio.playDiceRoll();
             led.setRainbowMode(true);
         }
@@ -75,11 +77,11 @@ void SceneRoulette::update(InputManager& input, AudioManager& audio, LedManager&
             // 玩家持續拉著搖桿 (joyY > 35) 或甩動：加速至極速 25.0f 並持續全速飛轉！
             if (_stripSpeed < 25.0f) _stripSpeed += 1.5f;
             else _stripSpeed = 25.0f;
-        } else if (elapsed < 2000) {
-            // 即使短撥一下放開，前 2.0 秒依然維持高速巡航，接著滑行減速，總長約 3 秒！
+        } else if (elapsed < _cruiseDuration) {
+            // 隨機巡航期間 (1.7s ~ 5.2s)：維持全速飛轉，加上後續滑行達到 2.5s ~ 6.0s 隨機未知感！
             if (_stripSpeed < 24.0f) _stripSpeed += 1.2f;
         } else {
-            // 玩家已放開搖桿且已滿 2 秒：自然滑行減速 (Ease-Out Deceleration)
+            // 巡航結束或放開搖桿：自然滑行減速 (Ease-Out Deceleration)
             _stripSpeed *= 0.945f;
 
             // 停定判定

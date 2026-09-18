@@ -132,7 +132,7 @@ void SceneRPS::update(InputManager& input, AudioManager& audio, LedManager& led)
 }
 
 void SceneRPS::drawGesture(int cx, int cy, uint8_t gesture, int radius, const char* label) {
-    // 繪製外圈同心立體圓盤
+    // 繪製外圈立體圓盤
     uint16_t themeColor = (gesture == GESTURE_ROCK) ? COLOR_GOLD :
                           (gesture == GESTURE_SCISSORS) ? COLOR_CYAN : TFT_GREEN;
 
@@ -140,47 +140,32 @@ void SceneRPS::drawGesture(int cx, int cy, uint8_t gesture, int radius, const ch
     M5.Lcd.drawCircle(cx, cy, radius, themeColor);
     M5.Lcd.drawCircle(cx, cy, radius - 1, 0x39E7);
 
-    // 標籤 (例如 [ HAND 1 ] 或 [ HAND 2 ])
-    if (label != nullptr) {
-        M5.Lcd.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-        M5.Lcd.drawCentreString(label, cx, cy - radius - 12, 1);
-    }
-
     if (gesture == GESTURE_ROCK) {
         // --- 拳頭 / 石頭 (ROCK ✊) ---
         int rw = radius * 5 / 4;
         int rh = radius;
-        // 握拳本體
-        M5.Lcd.fillRoundRect(cx - rw / 2, cy - rh / 2, rw, rh, 8, COLOR_GOLD);
-        M5.Lcd.drawRoundRect(cx - rw / 2, cy - rh / 2, rw, rh, 8, TFT_WHITE);
-        // 指節分線
+        M5.Lcd.fillRoundRect(cx - rw / 2, cy - rh / 2, rw, rh, 6, COLOR_GOLD);
+        M5.Lcd.drawRoundRect(cx - rw / 2, cy - rh / 2, rw, rh, 6, TFT_WHITE);
         M5.Lcd.drawFastVLine(cx - rw / 6, cy - rh / 2 + 3, rh - 6, 0x8A40);
         M5.Lcd.drawFastVLine(cx + rw / 6, cy - rh / 2 + 3, rh - 6, 0x8A40);
-        // 拇指橫塊
-        M5.Lcd.fillRoundRect(cx - rw / 2 - 2, cy + 2, rw / 2 + 4, rh / 3, 3, 0xD4A0);
+        M5.Lcd.fillRoundRect(cx - rw / 2 - 2, cy + 2, rw / 2 + 4, rh / 3, 2, 0xD4A0);
     } else if (gesture == GESTURE_SCISSORS) {
         // --- 剪刀 (SCISSORS ✌) ---
         int palmR = radius / 2;
-        // 掌部
         M5.Lcd.fillCircle(cx, cy + palmR / 2, palmR, COLOR_CYAN);
         M5.Lcd.drawCircle(cx, cy + palmR / 2, palmR, TFT_WHITE);
-        // 兩隻長手指 (V 字型)
-        int fingerW = (radius >= 30) ? 9 : 6;
+        int fingerW = (radius >= 30) ? 8 : 5;
         int fingerH = radius * 4 / 5;
-        // 食指
         M5.Lcd.fillRoundRect(cx - fingerW - 2, cy - fingerH, fingerW, fingerH, 3, COLOR_CYAN);
         M5.Lcd.drawRoundRect(cx - fingerW - 2, cy - fingerH, fingerW, fingerH, 3, TFT_WHITE);
-        // 中指
         M5.Lcd.fillRoundRect(cx + 2, cy - fingerH, fingerW, fingerH, 3, COLOR_CYAN);
         M5.Lcd.drawRoundRect(cx + 2, cy - fingerH, fingerW, fingerH, 3, TFT_WHITE);
     } else {
         // --- 布 / 手掌 (PAPER ✋) ---
         int palmW = radius * 6 / 5;
         int palmH = radius * 4 / 5;
-        // 掌心
-        M5.Lcd.fillRoundRect(cx - palmW / 2, cy - 2, palmW, palmH, 6, TFT_GREEN);
-        M5.Lcd.drawRoundRect(cx - palmW / 2, cy - 2, palmW, palmH, 6, TFT_WHITE);
-        // 四指張開 (頂部四根豎條)
+        M5.Lcd.fillRoundRect(cx - palmW / 2, cy - 2, palmW, palmH, 5, TFT_GREEN);
+        M5.Lcd.drawRoundRect(cx - palmW / 2, cy - 2, palmW, palmH, 5, TFT_WHITE);
         int fw = (radius >= 30) ? 6 : 4;
         int fh = radius * 3 / 5;
         for (int i = 0; i < 4; i++) {
@@ -189,43 +174,63 @@ void SceneRPS::drawGesture(int cx, int cy, uint8_t gesture, int radius, const ch
             M5.Lcd.drawRoundRect(fx, cy - fh, fw, fh + 4, 2, TFT_WHITE);
         }
     }
-
-    // 手勢名稱大字 (居中於圖案下方)
-    M5.Lcd.setTextColor(themeColor, 0x18C3);
-    M5.Lcd.drawCentreString(GESTURE_NAMES[gesture], cx, cy + radius - 14, 1);
 }
 
 void SceneRPS::draw() {
     if (!_needsRedraw) return;
     _needsRedraw = false;
 
-    // 1. 頂部狀態列
-    M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 26, 0x18C3);
+    // 1. 頂部狀態列 (Y: 0 ~ 24，標題簡潔大器，絕不重疊)
+    M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 24, 0x18C3);
     M5.Lcd.setTextColor(0xFBE0, 0x18C3);
-    M5.Lcd.drawString("ROCK-SCIS-PAPER", 6, 5, 2);
+    M5.Lcd.drawString("RPS DUEL", 8, 4, 2);
 
     M5.Lcd.setTextColor(COLOR_CYAN, 0x18C3);
-    M5.Lcd.drawRightString((_handCount == 1) ? "1 HAND" : "2 HANDS", SCREEN_WIDTH - 6, 7, 1);
+    M5.Lcd.drawRightString((_handCount == 1) ? "1-HAND" : "2-HANDS", SCREEN_WIDTH - 8, 6, 1);
 
-    // 2. 清空中央手勢動態區 (Y: 27 ~ 188)
-    M5.Lcd.fillRect(0, 27, SCREEN_WIDTH, 162, TFT_BLACK);
+    // 2. 清空中央手勢動態區 (Y: 25 ~ 170)
+    M5.Lcd.fillRect(0, 25, SCREEN_WIDTH, 146, TFT_BLACK);
 
     if (_handCount == 1) {
-        // 單手模式：居中超大手勢 (R = 40)
-        drawGesture(SCREEN_WIDTH / 2, 108, _handResults[0], 40, nullptr);
+        // 單手模式：居中超大手勢 (R = 36)
+        drawGesture(SCREEN_WIDTH / 2, 90, _handResults[0], 36, nullptr);
+
+        uint16_t themeColor = (_handResults[0] == GESTURE_ROCK) ? COLOR_GOLD :
+                              (_handResults[0] == GESTURE_SCISSORS) ? COLOR_CYAN : TFT_GREEN;
+        M5.Lcd.setTextColor(themeColor, TFT_BLACK);
+        M5.Lcd.drawCentreString(GESTURE_NAMES[_handResults[0]], SCREEN_WIDTH / 2, 140, 4);
     } else {
-        // 雙手模式：上下並列顯示
-        drawGesture(SCREEN_WIDTH / 2, 66, _handResults[0], 25, "HAND 1 (UP)");
-        drawGesture(SCREEN_WIDTH / 2, 146, _handResults[1], 25, "HAND 2 (DOWN)");
+        // 雙手模式：上下分割對決佈局 (R = 22)
+        // 上手 HAND 1
+        uint16_t color1 = (_handResults[0] == GESTURE_ROCK) ? COLOR_GOLD :
+                          (_handResults[0] == GESTURE_SCISSORS) ? COLOR_CYAN : TFT_GREEN;
+        char p1Str[20];
+        snprintf(p1Str, sizeof(p1Str), "P1: %s", GESTURE_NAMES[_handResults[0]]);
+        M5.Lcd.setTextColor(color1, TFT_BLACK);
+        M5.Lcd.drawCentreString(p1Str, SCREEN_WIDTH / 2, 28, 1);
+        drawGesture(SCREEN_WIDTH / 2, 58, _handResults[0], 21, nullptr);
+
+        // 中間 VS 分割標誌
+        M5.Lcd.setTextColor(0x7BEF, TFT_BLACK);
+        M5.Lcd.drawCentreString("- VS -", SCREEN_WIDTH / 2, 88, 1);
+
+        // 下手 HAND 2
+        uint16_t color2 = (_handResults[1] == GESTURE_ROCK) ? COLOR_GOLD :
+                          (_handResults[1] == GESTURE_SCISSORS) ? COLOR_CYAN : TFT_GREEN;
+        char p2Str[20];
+        snprintf(p2Str, sizeof(p2Str), "P2: %s", GESTURE_NAMES[_handResults[1]]);
+        M5.Lcd.setTextColor(color2, TFT_BLACK);
+        M5.Lcd.drawCentreString(p2Str, SCREEN_WIDTH / 2, 104, 1);
+        drawGesture(SCREEN_WIDTH / 2, 134, _handResults[1], 21, nullptr);
     }
 
-    // 3. 底部結算與操作指引區 (Y: 190 ~ 238)
-    M5.Lcd.fillRect(0, 190, SCREEN_WIDTH, 50, TFT_BLACK);
-    M5.Lcd.drawFastHLine(8, 192, SCREEN_WIDTH - 16, 0x39E7);
+    // 3. 底部結算與操作指引區 (Y: 172 ~ 238)
+    M5.Lcd.fillRect(0, 172, SCREEN_WIDTH, 68, TFT_BLACK);
+    M5.Lcd.drawFastHLine(8, 172, SCREEN_WIDTH - 16, 0x39E7);
 
     if (_isSpinning) {
         M5.Lcd.setTextColor(COLOR_CYAN, TFT_BLACK);
-        M5.Lcd.drawCentreString("SHOOTING...", SCREEN_WIDTH / 2, 204, 2);
+        M5.Lcd.drawCentreString("SHOOTING...", SCREEN_WIDTH / 2, 184, 2);
     } else {
         if (_handCount == 2) {
             // 判定雙手勝負
@@ -233,24 +238,22 @@ void SceneRPS::draw() {
             uint8_t h2 = _handResults[1];
             if (h1 == h2) {
                 M5.Lcd.setTextColor(COLOR_CYAN, TFT_BLACK);
-                M5.Lcd.drawCentreString("DRAW! (TIE)", SCREEN_WIDTH / 2, 198, 2);
+                M5.Lcd.drawCentreString("DRAW! (TIE)", SCREEN_WIDTH / 2, 182, 2);
             } else if ((h1 == 0 && h2 == 1) || (h1 == 1 && h2 == 2) || (h1 == 2 && h2 == 0)) {
                 M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
-                M5.Lcd.drawCentreString("HAND 1 WINS!", SCREEN_WIDTH / 2, 198, 2);
+                M5.Lcd.drawCentreString("P1 WINS!", SCREEN_WIDTH / 2, 182, 2);
             } else {
                 M5.Lcd.setTextColor(TFT_GREEN, TFT_BLACK);
-                M5.Lcd.drawCentreString("HAND 2 WINS!", SCREEN_WIDTH / 2, 198, 2);
+                M5.Lcd.drawCentreString("P2 WINS!", SCREEN_WIDTH / 2, 182, 2);
             }
         } else {
-            M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
-            char rStr[24];
-            snprintf(rStr, sizeof(rStr), "%s!", GESTURE_NAMES[_handResults[0]]);
-            M5.Lcd.drawCentreString(rStr, SCREEN_WIDTH / 2, 198, 2);
+            M5.Lcd.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+            M5.Lcd.drawCentreString("[PULL / SHAKE]", SCREEN_WIDTH / 2, 184, 2);
         }
 
         M5.Lcd.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-        M5.Lcd.drawCentreString("[PULL / SHAKE TO PLAY]", SCREEN_WIDTH / 2, 218, 1);
+        M5.Lcd.drawCentreString("[PULL / SHAKE TO PLAY]", SCREEN_WIDTH / 2, 208, 1);
         M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        M5.Lcd.drawCentreString("Joy L/R: 1 or 2 Hands", SCREEN_WIDTH / 2, 228, 1);
+        M5.Lcd.drawCentreString("Joy L/R: 1-2 Hands", SCREEN_WIDTH / 2, 222, 1);
     }
 }

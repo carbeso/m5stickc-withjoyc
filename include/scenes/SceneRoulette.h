@@ -28,6 +28,7 @@ private:
     bool _needsRedraw;
     uint32_t _lastTickTime;
     uint32_t _spinStartTime;
+    uint32_t _cruiseDuration; // 隨機巡航時長 (使得總旋轉時長在 2.5s ~ 6.0s 隨機不可預測)
 
     void spinRoulette(AudioManager& audio, LedManager& led);
 };
