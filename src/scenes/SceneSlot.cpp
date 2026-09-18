@@ -92,15 +92,16 @@ void SceneSlot::update(InputManager& input, AudioManager& audio, LedManager& led
     }
 
     bool anySpinning = (_colSpinning[0] || _colSpinning[1] || _colSpinning[2]);
-    bool isEngaged = (input.isJoyPulledDown || input.isJoyBtnHeld || input.isBtnAHeld);
+    bool stillHolding = (input.isJoyPulledDown || input.isJoyBtnHeld || input.isBtnAHeld);
 
     if (!anySpinning) {
-        // 搖桿向下拉住或甩動：啟動滾動
-        if (isEngaged || input.isActivelyShaking) {
+        // 啟動拉桿：必須是明確按鍵、下拉或甩動脈衝觸發，絕不因常態推持誤觸
+        if (input.joyPulledDown || input.btnAPressed || input.joyBtnPressed || input.isShaken) {
             pullLever(audio, led);
         }
     } else {
         uint32_t now = millis();
+        uint32_t elapsed = now - _spinStartTime;
 
         if (now - _lastTickTime > 40) {
             _lastTickTime = now;
@@ -118,14 +119,14 @@ void SceneSlot::update(InputManager& input, AudioManager& audio, LedManager& led
         _needsRedraw = true;
 
         // 煞車時序控制：
-        // 只要玩家還拉著搖桿不放、或手部還在甩動，就維持 3 輪全速滾動，重置煞車起始時間！
-        if (isEngaged || input.isActivelyShaking) {
-            _releaseTime = 0; // 重置
+        // 只要玩家還拉著搖桿或持續甩動，且未超過 3.5 秒超時，維持三輪滾動
+        if ((stillHolding || input.isActivelyShaking) && elapsed < 3500) {
+            _releaseTime = 0; // 重置放開計時
             _colSpinning[0] = true;
             _colSpinning[1] = true;
             _colSpinning[2] = true;
         } else {
-            // 剛放開拉桿或手部停止晃動
+            // 剛放開拉桿或手部停止晃動 (或達到 3.5s 超時)
             if (_releaseTime == 0) {
                 _releaseTime = now;
             }

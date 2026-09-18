@@ -66,14 +66,10 @@ void SceneEightBall::update(InputManager& input, AudioManager& audio, LedManager
         return;
     }
 
-    bool isEngaged = (input.isJoyBtnHeld || input.isBtnAHeld);
-
     if (!_isRevealing) {
-        // 啟動占卜：按著搖桿/Button A，或持續用力甩動
-        if (isEngaged) {
-            startDivination(true, audio, led);
-        } else if (input.isActivelyShaking) {
-            startDivination(false, audio, led);
+        // 啟動占卜：必須是明確按鍵或甩動脈衝觸發，絕不因常態推持誤觸
+        if (input.btnAPressed || input.joyBtnPressed || input.isShaken) {
+            startDivination(!input.isShaken, audio, led);
         }
     } else {
         // 翻騰冒泡進行中
@@ -86,19 +82,23 @@ void SceneEightBall::update(InputManager& input, AudioManager& audio, LedManager
             audio.playBubble();
         }
 
+        bool stillHolding = (input.isJoyBtnHeld || input.isBtnAHeld);
+
         // 停止判定：
         // 1. 若為按鍵觸發：放開按鍵且超過 250ms -> 開籤
-        // 2. 若為體感甩動：手部幾乎靜止 (isNearlyStill) 且超過 350ms -> 開籤
+        // 2. 若為體感甩動：手部不再激烈甩動且超過 350ms -> 開籤
+        // 3. 絕對超時防呆：若持續超過 3500ms 強制開籤
         bool readyToReveal = false;
         if (_triggeredByBtn) {
-            if (!isEngaged && (elapsed > 250)) {
+            if (!stillHolding && (elapsed > 250)) {
                 readyToReveal = true;
             }
         } else {
-            if (input.isNearlyStill && (elapsed > 350)) {
+            if (!input.isActivelyShaking && (elapsed > 350)) {
                 readyToReveal = true;
             }
         }
+        if (elapsed > 3500) readyToReveal = true;
 
         if (readyToReveal) {
             _isRevealing = false;

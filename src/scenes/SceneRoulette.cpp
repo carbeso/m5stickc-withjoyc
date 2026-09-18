@@ -17,13 +17,14 @@ const int ITEM_HEIGHT = 38;
 
 SceneRoulette::SceneRoulette()
     : _stripPos(0.0f), _stripSpeed(0.0f), _isSpinning(false),
-      _targetIndex(0), _needsRedraw(true), _lastTickTime(0) {}
+      _targetIndex(0), _needsRedraw(true), _lastTickTime(0), _spinStartTime(0) {}
 
 void SceneRoulette::init() {
     _needsRedraw = true;
     _isSpinning = false;
     _stripSpeed = 0.0f;
     _stripPos = 0.0f;
+    _spinStartTime = 0;
     _nextScene = SCENE_COUNT;
     M5.Lcd.fillScreen(TFT_BLACK);
 }
@@ -31,6 +32,7 @@ void SceneRoulette::init() {
 void SceneRoulette::spinRoulette(AudioManager& audio, LedManager& led) {
     _isSpinning = true;
     _stripSpeed = 24.0f; // 體感立刻旋轉 (Instant Spin)
+    _spinStartTime = millis();
     audio.playDiceRoll();
     led.setRainbowMode(true);
 }
@@ -42,22 +44,22 @@ void SceneRoulette::update(InputManager& input, AudioManager& audio, LedManager&
         return;
     }
 
-    bool isEngaged = (input.isJoyPulledDown || input.isJoyBtnHeld || input.isBtnAHeld);
+    bool stillHolding = (input.isJoyPulledDown || input.isJoyBtnHeld || input.isBtnAHeld);
 
     if (!_isSpinning) {
-        // 搖桿下拉著：漸入加速啟動 (Ease-In)
-        if (isEngaged) {
+        // 啟動旋轉：必須是明確按鍵、下拉或甩動脈衝觸發，絕不因常態推持誤觸
+        if (input.joyPulledDown || input.btnAPressed || input.joyBtnPressed || input.isShaken) {
             _isSpinning = true;
-            _stripSpeed = 6.0f; // 從較低初速起步加速
+            _spinStartTime = millis();
+            _stripSpeed = input.isShaken ? 24.0f : 8.0f; // 搖桿從初速加速，甩動則立刻極速
             audio.playDiceRoll();
             led.setRainbowMode(true);
-        } else if (input.isActivelyShaking) {
-            // 體感甩動：立刻最高速旋轉 (Instant Spin)
-            spinRoulette(audio, led);
         }
     } else {
         // 旋轉進行中
         _stripPos += _stripSpeed;
+        uint32_t now = millis();
+        uint32_t elapsed = now - _spinStartTime;
 
         float maxPos = 37 * ITEM_HEIGHT;
         while (_stripPos >= maxPos) _stripPos -= maxPos;
@@ -69,14 +71,14 @@ void SceneRoulette::update(InputManager& input, AudioManager& audio, LedManager&
         }
 
         // 動力學狀態處理：
-        if (isEngaged) {
-            // 玩家持續拉著搖桿：漸入加速並維持最高轉速 (Ease-In Acceleration)
+        if (stillHolding && elapsed < 3500) {
+            // 玩家持續拉著搖桿：漸入加速至極速 26.0
             if (_stripSpeed < 26.0f) _stripSpeed += 1.2f;
-        } else if (input.isActivelyShaking) {
+        } else if (input.isActivelyShaking && elapsed < 3500) {
             // 玩家持續甩動機身：維持極速
             _stripSpeed = 25.0f;
         } else {
-            // 玩家已放開搖桿且手部未在甩動：漸出減速 (Ease-Out Deceleration)
+            // 玩家已放開搖桿且手部未在甩動 (或達到 3.5s 超時防呆)：自然滑行減速
             _stripSpeed *= 0.94f;
 
             // 停定判定

@@ -45,6 +45,7 @@ public:
     bool isShaken;          // 單次甩動觸發邊緣脈衝
 
     M5HatMiniJoyC& getJoyC() { return _joyc; }
+    void clearEvents(); // 場景切換時清除殘留按鍵邊緣與狀態
 
 private:
     M5HatMiniJoyC _joyc;
@@ -61,4 +62,5 @@ private:
 
     float _lastAx, _lastAy, _lastAz;
     uint32_t _lastActiveShakeTime;
+    uint32_t _lastShakePulseTime;
 };

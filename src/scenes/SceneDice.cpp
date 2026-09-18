@@ -81,21 +81,19 @@ void SceneDice::update(InputManager& input, AudioManager& audio, LedManager& led
             _needsRedraw = true;
         }
 
-        // 啟動擲骰：
-        // 1. 搖桿壓持 (漸入)：開始翻滾
-        // 2. 體感甩動 (立刻)：瞬間高速翻滾
-        if (isEngaged) {
-            rollDice(true, audio, led);
-        } else if (input.isActivelyShaking) {
-            rollDice(false, audio, led);
+        // 啟動擲骰：必須是明確按鍵/甩動脈衝觸發，絕不因常態推持誤觸
+        if (input.btnAPressed || input.joyBtnPressed || input.isShaken) {
+            rollDice(!input.isShaken, audio, led);
         }
     } else {
         // 滾動進行中
         uint32_t now = millis();
         uint32_t elapsed = now - _rollStartTime;
 
-        // 漸入動力學：壓著搖桿時頻率漸快 (從 80ms 逐漸加速到 35ms)
-        uint32_t interval = (isEngaged && elapsed < 400) ? map(elapsed, 0, 400, 85, 35) : 35;
+        bool stillHolding = (input.isJoyPulledDown || input.isJoyBtnHeld || input.isBtnAHeld);
+
+        // 漸入動力學：壓著按鈕/搖桿時加速
+        uint32_t interval = (stillHolding && elapsed < 400) ? map(elapsed, 0, 400, 85, 35) : 35;
 
         if (now - _lastTickTime > interval) {
             _lastTickTime = now;
@@ -107,18 +105,20 @@ void SceneDice::update(InputManager& input, AudioManager& audio, LedManager& led
         }
 
         // 停止判定：
-        // (A) 若為搖桿操作：放開搖桿且翻滾超過 250ms 即煞停
-        // (B) 若為體感甩動：手部幾乎靜止 (isNearlyStill) 且超過 350ms 後定格
+        // (A) 若由按鈕/搖桿觸發：放開且滾動滿 250ms 即煞停定格
+        // (B) 若由體感甩動觸發：手腕不再激烈甩動且滾動滿 350ms 即定格
+        // (C) 絕對超時防呆：若持續超過 3500ms 強制煞停
         bool readyToStop = false;
         if (_triggeredByJoy) {
-            if (!isEngaged && (elapsed > 250)) {
+            if (!stillHolding && (elapsed > 250)) {
                 readyToStop = true;
             }
         } else {
-            if (!input.isActivelyShaking && input.isNearlyStill && (elapsed > 350)) {
+            if (!input.isActivelyShaking && (elapsed > 350)) {
                 readyToStop = true;
             }
         }
+        if (elapsed > 3500) readyToStop = true;
 
         if (readyToStop) {
             _isRolling = false;

@@ -41,6 +41,7 @@ void switchScene(GameScene target) {
         default:                currentScene = &sceneMenu; break;
     }
     currentScene->clearNextScene();
+    input.clearEvents(); // 清除上一場景之殘留按鍵與手勢邊緣
     currentScene->init();
 }
 

@@ -130,12 +130,9 @@ void ScenePoker::update(InputManager& input, AudioManager& audio, LedManager& le
             _needsRedraw = true;
         }
 
-        // 搖桿向上推著或按鍵壓著：啟動洗牌
-        if (input.isJoyPushedUp || input.isJoyBtnHeld || input.isBtnAHeld) {
-            startShuffle(true, audio, led);
-        } else if (input.isActivelyShaking) {
-            // 體感甩動：立刻啟動持續洗牌
-            startShuffle(false, audio, led);
+        // 啟動洗牌：必須是明確按鍵、上推或甩動脈衝觸發，絕不因常態推持誤觸
+        if (input.joyPushedUp || input.btnAPressed || input.joyBtnPressed || input.isShaken) {
+            startShuffle(!input.isShaken, audio, led);
         }
     } else {
         // 洗牌持續進行中
@@ -149,17 +146,24 @@ void ScenePoker::update(InputManager& input, AudioManager& audio, LedManager& le
         }
 
         // 停止判定：
-        // 1. 若為搖桿觸發：玩家放開搖桿 (不再向上推、未按鍵) 且已滿 250ms -> 煞車停定！
+        // 1. 若為按鍵/搖桿觸發：放開按鍵/搖桿且超過 250ms -> 停牌開牌
+        // 2. 若為體感甩動觸發：手部不再激烈甩動且超過 350ms -> 停牌開牌
+        // 3. 絕對超時防呆：若持續超過 3500ms 強制開牌
+        bool readyToStop = false;
         if (_triggeredByJoy) {
             bool stillHolding = (input.isJoyPushedUp || input.isJoyBtnHeld || input.isBtnAHeld);
             if (!stillHolding && (now - _animStartTime > 250)) {
-                finalizeDraw(audio, led);
+                readyToStop = true;
             }
         } else {
-            // 2. 若為體感觸發：機身幾乎靜止 (isNearlyStill) 且已滿 350ms -> 停定定格！
-            if (input.isNearlyStill && (now - _animStartTime > 350)) {
-                finalizeDraw(audio, led);
+            if (!input.isActivelyShaking && (now - _animStartTime > 350)) {
+                readyToStop = true;
             }
+        }
+        if (now - _animStartTime > 3500) readyToStop = true;
+
+        if (readyToStop) {
+            finalizeDraw(audio, led);
         }
     }
 }

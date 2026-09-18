@@ -27,6 +27,7 @@ private:
     uint8_t _targetIndex;
     bool _needsRedraw;
     uint32_t _lastTickTime;
+    uint32_t _spinStartTime;
 
     void spinRoulette(AudioManager& audio, LedManager& led);
 };

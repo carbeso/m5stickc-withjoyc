@@ -15,7 +15,26 @@ InputManager::InputManager()
       _prevJoyBtn(false), _prevPulledDown(false), _prevPushedUp(false),
       _prevPushedLeft(false), _prevPushedRight(false), _prevJoyEngaged(false),
       _btnBPressedTime(0), _btnBHandled(false),
-      _lastAx(0), _lastAy(0), _lastAz(0), _lastActiveShakeTime(0) {}
+      _lastAx(0), _lastAy(0), _lastAz(0), _lastActiveShakeTime(0), _lastShakePulseTime(0) {}
+
+void InputManager::clearEvents() {
+    joyBtnPressed = false;
+    btnAPressed = false;
+    btnBPressed = false;
+    btnBLongPressed = false;
+    joyPulledDown = false;
+    joyPushedUp = false;
+    joyPushedLeft = false;
+    joyPushedRight = false;
+    joyReleased = false;
+    isShaken = false;
+    isJoyBtnHeld = false;
+    isBtnAHeld = false;
+    isJoyPulledDown = false;
+    isJoyPushedUp = false;
+    isActivelyShaking = false;
+    isNearlyStill = true;
+}
 
 bool InputManager::begin() {
     bool ret = _joyc.begin(&Wire, MINI_JOYC_ADDR, HAT_I2C_SDA, HAT_I2C_SCL, 400000L);
@@ -108,22 +127,23 @@ void InputManager::update() {
 
     uint32_t now = millis();
 
-    // 判定持續激烈甩動
-    if (gyroMag > 350.0f || deltaA > 2.5f) {
+    // 判定持續激烈甩動 (刻意用力甩動，排除微幅晃動)
+    if (gyroMag > 320.0f || deltaA > 2.0f) {
         _lastActiveShakeTime = now;
         isActivelyShaking = true;
-        isNearlyStill = false;
     } else {
-        // 若已超過 280ms 無大動作，脫離激烈甩動狀態
-        if (now - _lastActiveShakeTime > 280) {
+        // 若超過 220ms 沒有激烈動作，立刻脫離持續甩動狀態
+        if (now - _lastActiveShakeTime > 220) {
             isActivelyShaking = false;
         }
-        // 若角速度極低，判定為幾乎靜止
-        isNearlyStill = (gyroMag < 90.0f && deltaA < 0.6f);
     }
 
-    // 單次邊緣觸發脈衝 (配合較嚴格門檻)
-    if (isActivelyShaking && (now - _lastActiveShakeTime < 40)) {
+    // 單次甩動邊緣脈衝 (冷卻時間 750ms，防止連發)
+    if (isActivelyShaking && (now - _lastShakePulseTime > 750)) {
         isShaken = true;
+        _lastShakePulseTime = now;
     }
+
+    // 幾乎靜止：放寬至人手常態持握（只要手部不再激烈甩動且角速度回落）
+    isNearlyStill = (!isActivelyShaking && gyroMag < 220.0f);
 }
