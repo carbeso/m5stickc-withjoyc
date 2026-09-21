@@ -214,8 +214,9 @@ void SceneTetris::update(InputManager& input, AudioManager& audio, LedManager& l
         }
     }
 
-    // 4. 順時針旋轉 (點擊搖桿中鍵或 Button A，附 180ms 防抖)
-    if (input.btnAPressed || input.joyBtnPressed) {
+    // 4. 順時針旋轉 (向上推搖桿或點擊 Button A，附 180ms 防抖)
+    bool reqRotate = input.btnAPressed || input.joyPushedUp || (input.joyY < -40 && (now - _lastRotateTime > 180));
+    if (reqRotate) {
         if (now - _lastRotateTime > 180) {
             uint8_t nextRot = (_curRot + 1) % 4;
             // 基礎踢牆 (Wall kick) 嘗試
@@ -238,8 +239,8 @@ void SceneTetris::update(InputManager& input, AudioManager& audio, LedManager& l
         }
     }
 
-    // 5. Button B 短按：瞬間落底 (Hard Drop)
-    if (input.btnBPressed) {
+    // 5. 搖桿中間鍵：瞬間落底到底 (Hard Drop)
+    if (input.joyBtnPressed) {
         while (!checkCollision(_curX, _curY + 1, _curShape, _curRot)) {
             _curY++;
         }
@@ -247,8 +248,8 @@ void SceneTetris::update(InputManager& input, AudioManager& audio, LedManager& l
         return;
     }
 
-    // 6. 自然下落與搖桿下推軟降 (Soft Drop)
-    bool isSoftDrop = (input.joyY < -40); // 搖桿向下推
+    // 6. 自然下落與向下推加速軟降 (Soft Drop)
+    bool isSoftDrop = (input.joyY > 35); // 搖桿向下推 (joyY > 35)
     uint32_t fallInterval = isSoftDrop ? 70 : 650; // 軟降 70ms，正常舒緩 650ms (固定不加速)
 
     if (now - _lastFallTime >= fallInterval) {
@@ -345,9 +346,11 @@ void SceneTetris::draw() {
     // 7. 底部操作指示 (Y: 200 ~ 238)
     g_canvas.drawFastHLine(6, 198, SCREEN_WIDTH - 12, 0x2965);
     g_canvas.setTextColor(COLOR_CYAN, TFT_BLACK);
-    g_canvas.drawCentreString("Joy: Move/Down  A: Rot", SCREEN_WIDTH / 2, 203, 1);
+    g_canvas.drawCentreString("Joy L/R: Move  Up/A: Rot", SCREEN_WIDTH / 2, 203, 1);
     g_canvas.setTextColor(TFT_YELLOW, TFT_BLACK);
-    g_canvas.drawCentreString("Btn B: Drop  Hold: Exit", SCREEN_WIDTH / 2, 216, 1);
+    g_canvas.drawCentreString("Down: Soft  Click: Drop", SCREEN_WIDTH / 2, 214, 1);
+    g_canvas.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    g_canvas.drawCentreString("Hold BtnB: Exit", SCREEN_WIDTH / 2, 226, 1);
 
     // 一次性推送至螢幕
     g_canvas.pushSprite(0, 0);
