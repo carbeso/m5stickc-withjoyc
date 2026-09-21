@@ -268,7 +268,8 @@ void SceneSensorLab::updateLedStudio(InputManager& input, LedManager& led) {
         _needsRedraw = true;
     }
     if (abs(input.joyY) > 30) {
-        int nextB = _brightness + (input.joyY / 20);
+        // input.joyY < 0 (向上推) 時亮度增加，input.joyY > 0 (向下推) 時亮度減少
+        int nextB = _brightness - (input.joyY / 20);
         _brightness = (uint8_t)constrain(nextB, 5, 100);
         _needsRedraw = true;
     }
