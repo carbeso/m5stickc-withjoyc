@@ -24,20 +24,6 @@ void SceneDice::init() {
     for (int i = 0; i < 6; i++) {
         _diceResults[i] = EntropyManager::random(1, DIE_FACES[_dieTypeIdx] + 1);
     }
-    M5.Lcd.fillScreen(TFT_BLACK);
-
-    M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 26, 0x2124);
-    M5.Lcd.setTextColor(COLOR_GOLD, 0x2124);
-    M5.Lcd.drawString("DICE", 8, 5, 2);
-
-    char specStr[10];
-    snprintf(specStr, sizeof(specStr), "%dd%d", _diceCount, DIE_FACES[_dieTypeIdx]);
-    M5.Lcd.setTextColor(TFT_WHITE, 0x2124);
-    M5.Lcd.drawRightString(specStr, SCREEN_WIDTH - 8, 5, 2);
-
-    M5.Lcd.drawFastHLine(6, 186, SCREEN_WIDTH - 12, 0x4208);
-    M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    M5.Lcd.drawCentreString("Joy L/R:d#  U/D:cnt", SCREEN_WIDTH / 2, 224, 1);
 }
 
 void SceneDice::rollDice(bool byJoy, AudioManager& audio, LedManager& led) {
@@ -131,44 +117,47 @@ void SceneDice::draw() {
     if (!_needsRedraw) return;
     _needsRedraw = false;
 
+    // 方案 A：使用全域雙緩衝畫布離線繪製，杜絕多面骰滾動閃爍
+    g_canvas.fillSprite(TFT_BLACK);
+
     // 頂部狀態列
-    M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 26, 0x2124);
-    M5.Lcd.setTextColor(COLOR_GOLD, 0x2124);
-    M5.Lcd.drawString("DICE", 8, 5, 2);
+    g_canvas.fillRect(0, 0, SCREEN_WIDTH, 26, 0x2124);
+    g_canvas.setTextColor(COLOR_GOLD, 0x2124);
+    g_canvas.drawString("DICE", 8, 5, 2);
 
     char specStr[10];
     snprintf(specStr, sizeof(specStr), "%dd%d", _diceCount, DIE_FACES[_dieTypeIdx]);
-    M5.Lcd.setTextColor(TFT_WHITE, 0x2124);
-    M5.Lcd.drawRightString(specStr, SCREEN_WIDTH - 8, 6, 2);
+    g_canvas.setTextColor(TFT_WHITE, 0x2124);
+    g_canvas.drawRightString(specStr, SCREEN_WIDTH - 8, 6, 2);
 
     int total = 0;
     for (uint8_t i = 0; i < _diceCount; i++) total += _diceResults[i];
 
     // 清空動態骰子區 (Y: 28 ~ 184)
-    M5.Lcd.fillRect(0, 28, SCREEN_WIDTH, 156, TFT_BLACK);
+    g_canvas.fillRect(0, 28, SCREEN_WIDTH, 156, TFT_BLACK);
 
     if (_diceCount == 1) {
         int cx = SCREEN_WIDTH / 2;
         int cy = 98;
         int size = 40;
 
-        M5.Lcd.drawRoundRect(cx - size, cy - size, size * 2, size * 2, 8, COLOR_GOLD);
-        M5.Lcd.fillRoundRect(cx - size + 2, cy - size + 2, size * 2 - 4, size * 2 - 4, 6, TFT_BLACK);
+        g_canvas.drawRoundRect(cx - size, cy - size, size * 2, size * 2, 8, COLOR_GOLD);
+        g_canvas.fillRoundRect(cx - size + 2, cy - size + 2, size * 2 - 4, size * 2 - 4, 6, TFT_BLACK);
 
         char numStr[8];
         snprintf(numStr, sizeof(numStr), "%d", _diceResults[0]);
-        M5.Lcd.setTextColor(TFT_WHITE);
-        M5.Lcd.setTextSize(2);
-        M5.Lcd.drawCentreString(numStr, cx, cy - 22, 4);
-        M5.Lcd.setTextSize(1);
+        g_canvas.setTextColor(TFT_WHITE);
+        g_canvas.setTextSize(2);
+        g_canvas.drawCentreString(numStr, cx, cy - 22, 4);
+        g_canvas.setTextSize(1);
 
         if (DIE_FACES[_dieTypeIdx] == 20 && !_isRolling) {
             if (_diceResults[0] == 20) {
-                M5.Lcd.setTextColor(TFT_GREEN);
-                M5.Lcd.drawCentreString("CRITICAL!", cx, 152, 2);
+                g_canvas.setTextColor(TFT_GREEN);
+                g_canvas.drawCentreString("CRITICAL!", cx, 152, 2);
             } else if (_diceResults[0] == 1) {
-                M5.Lcd.setTextColor(TFT_RED);
-                M5.Lcd.drawCentreString("FUMBLE!", cx, 152, 2);
+                g_canvas.setTextColor(TFT_RED);
+                g_canvas.drawCentreString("FUMBLE!", cx, 152, 2);
             }
         }
     } else {
@@ -182,25 +171,32 @@ void SceneDice::draw() {
             int x = (col == 0) ? 8 : (SCREEN_WIDTH - itemW - 8);
             int y = startY + row * (itemH + 6);
 
-            M5.Lcd.fillRoundRect(x, y, itemW, itemH, 4, TFT_BLACK);
-            M5.Lcd.drawRoundRect(x, y, itemW, itemH, 4, COLOR_GOLD);
+            g_canvas.fillRoundRect(x, y, itemW, itemH, 4, TFT_BLACK);
+            g_canvas.drawRoundRect(x, y, itemW, itemH, 4, COLOR_GOLD);
 
             char numStr[8];
             snprintf(numStr, sizeof(numStr), "%d", _diceResults[i]);
-            M5.Lcd.setTextColor(TFT_WHITE);
-            M5.Lcd.drawCentreString(numStr, x + itemW / 2, y + 6, 4);
+            g_canvas.setTextColor(TFT_WHITE);
+            g_canvas.drawCentreString(numStr, x + itemW / 2, y + 6, 4);
         }
     }
 
-    // 底部總計列
-    M5.Lcd.fillRect(0, 188, SCREEN_WIDTH, 30, TFT_BLACK);
+    // 底部總計列與操作指引
+    g_canvas.fillRect(0, 186, SCREEN_WIDTH, 54, TFT_BLACK);
+    g_canvas.drawFastHLine(6, 186, SCREEN_WIDTH - 12, 0x4208);
     if (_diceCount > 1) {
         char totStr[20];
         snprintf(totStr, sizeof(totStr), "TOTAL: %d", total);
-        M5.Lcd.setTextColor(COLOR_GOLD);
-        M5.Lcd.drawCentreString(totStr, SCREEN_WIDTH / 2, 192, 4);
+        g_canvas.setTextColor(COLOR_GOLD);
+        g_canvas.drawCentreString(totStr, SCREEN_WIDTH / 2, 192, 4);
     } else {
-        M5.Lcd.setTextColor(TFT_LIGHTGREY);
-        M5.Lcd.drawCentreString(_isRolling ? "ROLLING..." : "HOLD / SHAKE", SCREEN_WIDTH / 2, 196, 2);
+        g_canvas.setTextColor(TFT_LIGHTGREY);
+        g_canvas.drawCentreString(_isRolling ? "ROLLING..." : "HOLD / SHAKE", SCREEN_WIDTH / 2, 196, 2);
     }
+
+    g_canvas.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    g_canvas.drawCentreString("Joy L/R:d#  U/D:cnt", SCREEN_WIDTH / 2, 224, 1);
+
+    // 一次性推送畫面至 ST7789v2 螢幕
+    g_canvas.pushSprite(0, 0);
 }

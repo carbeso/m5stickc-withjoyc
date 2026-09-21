@@ -25,7 +25,6 @@ void ScenePoker::init() {
     _deckEmpty = false;
     _nextScene = SCENE_COUNT;
     resetAndShuffle();
-    M5.Lcd.fillScreen(TFT_BLACK);
 }
 
 void ScenePoker::resetAndShuffle() {
@@ -176,32 +175,32 @@ void ScenePoker::update(InputManager& input, AudioManager& audio, LedManager& le
 static void drawPokerSuit(int cx, int cy, uint8_t suit, uint16_t color) {
     switch (suit) {
         case 0: // ♠
-            M5.Lcd.fillTriangle(cx, cy - 20, cx - 15, cy + 2, cx + 15, cy + 2, color);
-            M5.Lcd.fillCircle(cx - 8, cy + 2, 8, color);
-            M5.Lcd.fillCircle(cx + 8, cy + 2, 8, color);
-            M5.Lcd.fillTriangle(cx, cy, cx - 5, cy + 18, cx + 5, cy + 18, color);
+            g_canvas.fillTriangle(cx, cy - 20, cx - 15, cy + 2, cx + 15, cy + 2, color);
+            g_canvas.fillCircle(cx - 8, cy + 2, 8, color);
+            g_canvas.fillCircle(cx + 8, cy + 2, 8, color);
+            g_canvas.fillTriangle(cx, cy, cx - 5, cy + 18, cx + 5, cy + 18, color);
             break;
         case 1: // ♥
-            M5.Lcd.fillCircle(cx - 8, cy - 6, 9, color);
-            M5.Lcd.fillCircle(cx + 8, cy - 6, 9, color);
-            M5.Lcd.fillTriangle(cx - 16, cy - 4, cx + 16, cy - 4, cx, cy + 18, color);
+            g_canvas.fillCircle(cx - 8, cy - 6, 9, color);
+            g_canvas.fillCircle(cx + 8, cy - 6, 9, color);
+            g_canvas.fillTriangle(cx - 16, cy - 4, cx + 16, cy - 4, cx, cy + 18, color);
             break;
         case 2: // ♦
-            M5.Lcd.fillTriangle(cx, cy - 19, cx - 15, cy, cx + 15, cy, color);
-            M5.Lcd.fillTriangle(cx, cy + 19, cx - 15, cy, cx + 15, cy, color);
+            g_canvas.fillTriangle(cx, cy - 19, cx - 15, cy, cx + 15, cy, color);
+            g_canvas.fillTriangle(cx, cy + 19, cx - 15, cy, cx + 15, cy, color);
             break;
         case 3: // ♣
-            M5.Lcd.fillCircle(cx, cy - 9, 8, color);
-            M5.Lcd.fillCircle(cx - 9, cy + 2, 8, color);
-            M5.Lcd.fillCircle(cx + 9, cy + 2, 8, color);
-            M5.Lcd.fillTriangle(cx, cy, cx - 5, cy + 18, cx + 5, cy + 18, color);
+            g_canvas.fillCircle(cx, cy - 9, 8, color);
+            g_canvas.fillCircle(cx - 9, cy + 2, 8, color);
+            g_canvas.fillCircle(cx + 9, cy + 2, 8, color);
+            g_canvas.fillTriangle(cx, cy, cx - 5, cy + 18, cx + 5, cy + 18, color);
             break;
         case 4: // JOKER
-            M5.Lcd.fillCircle(cx, cy, 14, color);
-            M5.Lcd.fillTriangle(cx, cy - 18, cx - 5, cy, cx + 5, cy, TFT_WHITE);
-            M5.Lcd.fillTriangle(cx, cy + 18, cx - 5, cy, cx + 5, cy, TFT_WHITE);
-            M5.Lcd.fillTriangle(cx - 18, cy, cx, cy - 5, cx, cy + 5, TFT_WHITE);
-            M5.Lcd.fillTriangle(cx + 18, cy, cx, cy - 5, cx, cy + 5, TFT_WHITE);
+            g_canvas.fillCircle(cx, cy, 14, color);
+            g_canvas.fillTriangle(cx, cy - 18, cx - 5, cy, cx + 5, cy, TFT_WHITE);
+            g_canvas.fillTriangle(cx, cy + 18, cx - 5, cy, cx + 5, cy, TFT_WHITE);
+            g_canvas.fillTriangle(cx - 18, cy, cx, cy - 5, cx, cy + 5, TFT_WHITE);
+            g_canvas.fillTriangle(cx + 18, cy, cx, cy - 5, cx, cy + 5, TFT_WHITE);
             break;
     }
 }
@@ -210,10 +209,13 @@ void ScenePoker::draw() {
     if (!_needsRedraw) return;
     _needsRedraw = false;
 
+    // 方案 A：使用全域雙緩衝畫布離線繪製，杜絕洗牌抽牌動畫與牌面切換閃爍
+    g_canvas.fillSprite(TFT_BLACK);
+
     // 頂部狀態列：左側 POKER，右側顯示模式與張數
-    M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 26, 0x18C3);
-    M5.Lcd.setTextColor(TFT_WHITE, 0x18C3);
-    M5.Lcd.drawString("POKER", 8, 5, 2);
+    g_canvas.fillRect(0, 0, SCREEN_WIDTH, 26, 0x18C3);
+    g_canvas.setTextColor(TFT_WHITE, 0x18C3);
+    g_canvas.drawString("POKER", 8, 5, 2);
 
     char infoStr[14];
     if (_singleMode) {
@@ -221,48 +223,48 @@ void ScenePoker::draw() {
     } else {
         snprintf(infoStr, sizeof(infoStr), "%d/%d", _deckSize - _deckIndex, _deckSize);
     }
-    M5.Lcd.setTextColor(COLOR_GOLD, 0x18C3);
-    M5.Lcd.drawRightString(infoStr, SCREEN_WIDTH - 8, 6, 2);
-
-    // 清除中央牌面區
-    M5.Lcd.fillRect(0, 26, SCREEN_WIDTH, 168, TFT_BLACK);
+    g_canvas.setTextColor(COLOR_GOLD, 0x18C3);
+    g_canvas.drawRightString(infoStr, SCREEN_WIDTH - 8, 6, 2);
 
     Card showCard = _isShuffling ? _tempAnimCard : _currentCard;
 
     if (_deckEmpty && !_isShuffling) {
         // 牌堆已抽空：明確顯示 EMPTY，提示手動重置！
-        M5.Lcd.setTextColor(TFT_RED, TFT_BLACK);
-        M5.Lcd.drawCentreString("[ EMPTY ]", SCREEN_WIDTH / 2, 75, 4);
-        M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
-        M5.Lcd.drawCentreString("DECK FINISHED", SCREEN_WIDTH / 2, 110, 2);
-        M5.Lcd.setTextColor(TFT_WHITE, TFT_BLACK);
-        M5.Lcd.drawCentreString("PRESS A TO RESET", SCREEN_WIDTH / 2, 135, 2);
+        g_canvas.setTextColor(TFT_RED, TFT_BLACK);
+        g_canvas.drawCentreString("[ EMPTY ]", SCREEN_WIDTH / 2, 75, 4);
+        g_canvas.setTextColor(COLOR_GOLD, TFT_BLACK);
+        g_canvas.drawCentreString("DECK FINISHED", SCREEN_WIDTH / 2, 110, 2);
+        g_canvas.setTextColor(TFT_WHITE, TFT_BLACK);
+        g_canvas.drawCentreString("PRESS A TO RESET", SCREEN_WIDTH / 2, 135, 2);
     } else if (!_isCardRevealed && !_isShuffling) {
-        M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        M5.Lcd.drawCentreString("[ READY ]", SCREEN_WIDTH / 2, 85, 4);
-        M5.Lcd.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-        M5.Lcd.drawCentreString("Push UP & Hold", SCREEN_WIDTH / 2, 120, 2);
+        g_canvas.setTextColor(TFT_DARKGREY, TFT_BLACK);
+        g_canvas.drawCentreString("[ READY ]", SCREEN_WIDTH / 2, 85, 4);
+        g_canvas.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+        g_canvas.drawCentreString("Push UP & Hold", SCREEN_WIDTH / 2, 120, 2);
     } else {
         bool isRed = (showCard.suit == 1 || showCard.suit == 2 || (showCard.suit == 4 && showCard.value == 2));
         uint16_t themeColor = isRed ? TFT_RED : TFT_WHITE;
 
         if (showCard.suit == 4) {
             drawPokerSuit(SCREEN_WIDTH / 2, 65, 4, isRed ? TFT_MAGENTA : TFT_CYAN);
-            M5.Lcd.setTextColor(isRed ? TFT_MAGENTA : TFT_CYAN, TFT_BLACK);
-            M5.Lcd.drawCentreString("JOKER", SCREEN_WIDTH / 2, 105, 4);
+            g_canvas.setTextColor(isRed ? TFT_MAGENTA : TFT_CYAN, TFT_BLACK);
+            g_canvas.drawCentreString("JOKER", SCREEN_WIDTH / 2, 105, 4);
         } else {
             drawPokerSuit(SCREEN_WIDTH / 2, 65, showCard.suit, themeColor);
-            M5.Lcd.setTextColor(themeColor, TFT_BLACK);
-            M5.Lcd.setTextSize(2);
-            M5.Lcd.drawCentreString(VALUE_NAMES[showCard.value], SCREEN_WIDTH / 2, 105, 4);
-            M5.Lcd.setTextSize(1);
+            g_canvas.setTextColor(themeColor, TFT_BLACK);
+            g_canvas.setTextSize(2);
+            g_canvas.drawCentreString(VALUE_NAMES[showCard.value], SCREEN_WIDTH / 2, 105, 4);
+            g_canvas.setTextSize(1);
         }
     }
 
     // 底部指引
-    M5.Lcd.drawFastHLine(8, 194, SCREEN_WIDTH - 16, 0x39E7);
-    M5.Lcd.setTextColor(COLOR_CYAN, TFT_BLACK);
-    M5.Lcd.drawCentreString("UP/A: DRAW (Hold)", SCREEN_WIDTH / 2, 200, 2);
-    M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    M5.Lcd.drawCentreString("Joy L:Mode  R:Joker", SCREEN_WIDTH / 2, 222, 1);
+    g_canvas.drawFastHLine(8, 194, SCREEN_WIDTH - 16, 0x39E7);
+    g_canvas.setTextColor(COLOR_CYAN, TFT_BLACK);
+    g_canvas.drawCentreString("UP/A: DRAW (Hold)", SCREEN_WIDTH / 2, 200, 2);
+    g_canvas.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    g_canvas.drawCentreString("Joy L:Mode  R:Joker", SCREEN_WIDTH / 2, 222, 1);
+
+    // 一次性推送畫面至 ST7789v2 螢幕
+    g_canvas.pushSprite(0, 0);
 }

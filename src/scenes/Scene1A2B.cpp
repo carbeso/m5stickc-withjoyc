@@ -33,8 +33,6 @@ void Scene1A2B::init() {
     for (int i = 0; i < 4; i++) {
         _guess[i] = 0;
     }
-
-    M5.Lcd.fillScreen(TFT_BLACK);
 }
 
 void Scene1A2B::generateTarget() {
@@ -182,30 +180,31 @@ void Scene1A2B::draw() {
     if (!_needsRedraw) return;
     _needsRedraw = false;
 
-    M5.Lcd.fillScreen(TFT_BLACK);
+    // 方案 A：使用全域雙緩衝畫布離線繪製，杜絕位數與游標切換閃爍
+    g_canvas.fillSprite(TFT_BLACK);
 
     // 1. 頂部標題列 (Y: 0 ~ 26)
-    M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 26, 0x18E3);
-    M5.Lcd.setTextColor(COLOR_GOLD, 0x18E3);
-    M5.Lcd.drawString("1A2B PUZZLE", 6, 5, 2);
+    g_canvas.fillRect(0, 0, SCREEN_WIDTH, 26, 0x18E3);
+    g_canvas.setTextColor(COLOR_GOLD, 0x18E3);
+    g_canvas.drawString("1A2B PUZZLE", 6, 5, 2);
 
     char roundStr[10];
     snprintf(roundStr, sizeof(roundStr), "R:%d", _attempts);
-    M5.Lcd.setTextColor(COLOR_CYAN, 0x18E3);
-    M5.Lcd.drawRightString(roundStr, SCREEN_WIDTH - 6, 5, 2);
+    g_canvas.setTextColor(COLOR_CYAN, 0x18E3);
+    g_canvas.drawRightString(roundStr, SCREEN_WIDTH - 6, 5, 2);
 
     // 2. 狀態與提示條 (Y: 34 ~ 52)
     if (_state == STATE_1A2B_IDLE) {
-        M5.Lcd.setTextColor(TFT_GREEN, TFT_BLACK);
-        M5.Lcd.drawCentreString("PRESS JOY TO START", SCREEN_WIDTH / 2, 36, 2);
+        g_canvas.setTextColor(TFT_GREEN, TFT_BLACK);
+        g_canvas.drawCentreString("PRESS JOY TO START", SCREEN_WIDTH / 2, 36, 2);
     } else if (_state == STATE_1A2B_WON) {
-        M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
-        M5.Lcd.drawCentreString("YOU WIN! 4A 0B", SCREEN_WIDTH / 2, 36, 2);
+        g_canvas.setTextColor(COLOR_GOLD, TFT_BLACK);
+        g_canvas.drawCentreString("YOU WIN! 4A 0B", SCREEN_WIDTH / 2, 36, 2);
     } else {
         char promptStr[24];
         snprintf(promptStr, sizeof(promptStr), "ROUND #%d GUESS", _attempts + 1);
-        M5.Lcd.setTextColor(COLOR_LIGHT_BLUE, TFT_BLACK);
-        M5.Lcd.drawCentreString(promptStr, SCREEN_WIDTH / 2, 36, 2);
+        g_canvas.setTextColor(COLOR_LIGHT_BLUE, TFT_BLACK);
+        g_canvas.drawCentreString(promptStr, SCREEN_WIDTH / 2, 36, 2);
     }
 
     // 3. 中央 4 位數位槽 (Y: 65 ~ 111)
@@ -214,30 +213,30 @@ void Scene1A2B::draw() {
         bool isCur = (_state == STATE_1A2B_PLAYING && i == _cursor);
 
         if (isCur) {
-            M5.Lcd.fillRoundRect(x, BOX_Y, BOX_W, BOX_H, 4, COLOR_CYAN);
-            M5.Lcd.setTextColor(TFT_BLACK, COLOR_CYAN);
+            g_canvas.fillRoundRect(x, BOX_Y, BOX_W, BOX_H, 4, COLOR_CYAN);
+            g_canvas.setTextColor(TFT_BLACK, COLOR_CYAN);
         } else {
-            M5.Lcd.drawRoundRect(x, BOX_Y, BOX_W, BOX_H, 4, 0x39E7);
-            M5.Lcd.setTextColor(TFT_WHITE, TFT_BLACK);
+            g_canvas.drawRoundRect(x, BOX_Y, BOX_W, BOX_H, 4, 0x39E7);
+            g_canvas.setTextColor(TFT_WHITE, TFT_BLACK);
         }
 
         if (_state == STATE_1A2B_IDLE) {
-            M5.Lcd.drawCentreString("-", x + BOX_W / 2, BOX_Y + 10, 4);
+            g_canvas.drawCentreString("-", x + BOX_W / 2, BOX_Y + 10, 4);
         } else {
             char dStr[2];
             dStr[0] = '0' + _guess[i];
             dStr[1] = '\0';
-            M5.Lcd.drawCentreString(dStr, x + BOX_W / 2, BOX_Y + 10, 4);
+            g_canvas.drawCentreString(dStr, x + BOX_W / 2, BOX_Y + 10, 4);
         }
     }
 
     // 4. 最新判定結果卡片 (Y: 124 ~ 184)
-    M5.Lcd.drawRoundRect(10, 124, SCREEN_WIDTH - 20, 60, 4, 0x2965);
+    g_canvas.drawRoundRect(10, 124, SCREEN_WIDTH - 20, 60, 4, 0x2965);
 
     if (!_hasEvaluated && _state != STATE_1A2B_WON) {
-        M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        M5.Lcd.drawCentreString("Set digits & Click", SCREEN_WIDTH / 2, 142, 2);
-        M5.Lcd.drawCentreString("to submit answer", SCREEN_WIDTH / 2, 160, 1);
+        g_canvas.setTextColor(TFT_DARKGREY, TFT_BLACK);
+        g_canvas.drawCentreString("Set digits & Click", SCREEN_WIDTH / 2, 142, 2);
+        g_canvas.drawCentreString("to submit answer", SCREEN_WIDTH / 2, 160, 1);
     } else {
         char resStr[20];
         snprintf(resStr, sizeof(resStr), "%dA %dB", _lastA, _lastB);
@@ -246,8 +245,8 @@ void Scene1A2B::draw() {
                             (_lastA > 0) ? COLOR_GOLD :
                             (_lastB > 0) ? COLOR_LIGHT_BLUE : TFT_RED;
 
-        M5.Lcd.setTextColor(resColor, TFT_BLACK);
-        M5.Lcd.drawCentreString(resStr, SCREEN_WIDTH / 2, 132, 4);
+        g_canvas.setTextColor(resColor, TFT_BLACK);
+        g_canvas.drawCentreString(resStr, SCREEN_WIDTH / 2, 132, 4);
 
         char subInfo[32];
         if (_lastA == 4) {
@@ -255,26 +254,29 @@ void Scene1A2B::draw() {
         } else {
             snprintf(subInfo, sizeof(subInfo), "Attempts: %d", _attempts);
         }
-        M5.Lcd.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-        M5.Lcd.drawCentreString(subInfo, SCREEN_WIDTH / 2, 166, 1);
+        g_canvas.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+        g_canvas.drawCentreString(subInfo, SCREEN_WIDTH / 2, 166, 1);
     }
 
     // 5. 底部操作指示 (Y: 194 ~ 238)
-    M5.Lcd.drawFastHLine(8, 194, SCREEN_WIDTH - 16, 0x39E7);
+    g_canvas.drawFastHLine(8, 194, SCREEN_WIDTH - 16, 0x39E7);
 
     if (_state == STATE_1A2B_PLAYING) {
-        M5.Lcd.setTextColor(COLOR_CYAN, TFT_BLACK);
-        M5.Lcd.drawCentreString("Joy L/R: Digits", SCREEN_WIDTH / 2, 200, 1);
-        M5.Lcd.setTextColor(TFT_YELLOW, TFT_BLACK);
-        M5.Lcd.drawCentreString("Joy U/D: 0-9  Click: Send", SCREEN_WIDTH / 2, 212, 1);
+        g_canvas.setTextColor(COLOR_CYAN, TFT_BLACK);
+        g_canvas.drawCentreString("Joy L/R: Digits", SCREEN_WIDTH / 2, 200, 1);
+        g_canvas.setTextColor(TFT_YELLOW, TFT_BLACK);
+        g_canvas.drawCentreString("Joy U/D: 0-9  Click: Send", SCREEN_WIDTH / 2, 212, 1);
     } else if (_state == STATE_1A2B_WON) {
-        M5.Lcd.setTextColor(TFT_GREEN, TFT_BLACK);
-        M5.Lcd.drawCentreString("Press Joy to Restart", SCREEN_WIDTH / 2, 206, 1);
+        g_canvas.setTextColor(TFT_GREEN, TFT_BLACK);
+        g_canvas.drawCentreString("Press Joy to Restart", SCREEN_WIDTH / 2, 206, 1);
     } else {
-        M5.Lcd.setTextColor(COLOR_CYAN, TFT_BLACK);
-        M5.Lcd.drawCentreString("Press Joy to Start", SCREEN_WIDTH / 2, 206, 1);
+        g_canvas.setTextColor(COLOR_CYAN, TFT_BLACK);
+        g_canvas.drawCentreString("Press Joy to Start", SCREEN_WIDTH / 2, 206, 1);
     }
 
-    M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    M5.Lcd.drawCentreString("Hold BtnB: Menu", SCREEN_WIDTH / 2, 225, 1);
+    g_canvas.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    g_canvas.drawCentreString("Hold BtnB: Menu", SCREEN_WIDTH / 2, 225, 1);
+
+    // 一次性推送畫面至 ST7789v2 螢幕
+    g_canvas.pushSprite(0, 0);
 }
