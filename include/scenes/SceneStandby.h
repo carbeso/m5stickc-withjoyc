@@ -7,6 +7,7 @@
 
 #include "Scene.h"
 #include "EntropyManager.h"
+#include "BleSyncManager.h"
 
 enum StandbyMode {
     STANDBY_MATRIX = 0,     // 黑客帝國代碼雨動態螢幕保護
@@ -50,4 +51,7 @@ private:
     bool _colonBlink;
 
     bool _needsRedraw;
+    uint32_t _lastBleAnimTime;
+    uint8_t _bleAnimStep;
+    uint32_t _syncFeedbackEndTime;
 };
