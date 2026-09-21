@@ -4,6 +4,7 @@
  */
 
 #include "scenes/SceneSlot.h"
+#include "EntropyManager.h"
 
 const int CELL_W = 36;
 const int CELL_H = 40;
@@ -19,7 +20,7 @@ SceneSlot::SceneSlot()
         _colSpinning[c] = false;
         _colOffset[c] = 0;
         for (int r = 0; r < 3; r++) {
-            _grid[c][r] = random(0, SYM_COUNT);
+            _grid[c][r] = EntropyManager::random(0, SYM_COUNT);
         }
     }
 }
@@ -33,7 +34,7 @@ void SceneSlot::init() {
     for (int c = 0; c < 3; c++) {
         _colSpinning[c] = false;
         for (int r = 0; r < 3; r++) {
-            _grid[c][r] = random(0, SYM_COUNT);
+            _grid[c][r] = EntropyManager::random(0, SYM_COUNT);
         }
     }
     M5.Lcd.fillScreen(TFT_BLACK);
@@ -113,7 +114,7 @@ void SceneSlot::update(InputManager& input, AudioManager& audio, LedManager& led
         for (int c = 0; c < 3; c++) {
             if (_colSpinning[c]) {
                 for (int r = 0; r < 3; r++) {
-                    _grid[c][r] = random(0, SYM_COUNT);
+                    _grid[c][r] = EntropyManager::random(0, SYM_COUNT);
                 }
             }
         }

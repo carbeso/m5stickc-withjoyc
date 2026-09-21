@@ -4,6 +4,7 @@
  */
 
 #include "scenes/SceneRPS.h"
+#include "EntropyManager.h"
 
 const char* GESTURE_NAMES[] = {"ROCK", "SCISSORS", "PAPER"};
 
@@ -74,9 +75,9 @@ void SceneRPS::update(InputManager& input, AudioManager& audio, LedManager& led)
         if (now - _lastTickTime > 70) {
             _lastTickTime = now;
             _animCycle++;
-            _handResults[0] = random(0, 3);
+            _handResults[0] = EntropyManager::random(0, 3);
             if (_handCount == 2) {
-                _handResults[1] = random(0, 3);
+                _handResults[1] = EntropyManager::random(0, 3);
             }
             audio.playClick();
             _needsRedraw = true;
@@ -102,9 +103,9 @@ void SceneRPS::update(InputManager& input, AudioManager& audio, LedManager& led)
 
             if (stopCondition) {
                 _isSpinning = false;
-                _handResults[0] = random(0, 3);
+                _handResults[0] = EntropyManager::random(0, 3);
                 if (_handCount == 2) {
-                    _handResults[1] = random(0, 3);
+                    _handResults[1] = EntropyManager::random(0, 3);
                 }
 
                 if (_handCount == 2) {

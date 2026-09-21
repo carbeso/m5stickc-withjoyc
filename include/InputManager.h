@@ -44,6 +44,10 @@ public:
     bool isNearlyStill;      // 機身當前幾乎處於靜止狀態
     bool isShaken;          // 單次甩動觸發邊緣脈衝
 
+    // 活躍時間戳 (用於螢幕保護與待機休眠)
+    uint32_t lastActivityTime;
+    void resetActivityTimer() { lastActivityTime = millis(); }
+
     M5HatMiniJoyC& getJoyC() { return _joyc; }
     void clearEvents(); // 場景切換時清除殘留按鍵邊緣與狀態
 

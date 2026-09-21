@@ -4,6 +4,7 @@
  */
 
 #include "scenes/SceneRoulette.h"
+#include "EntropyManager.h"
 
 const RoulettePocket WHEEL_POCKETS[37] = {
     {0, 0}, {32, 1}, {15, 2}, {19, 1}, {4, 2}, {21, 1}, {2, 2}, {25, 1},
@@ -33,7 +34,7 @@ void SceneRoulette::init() {
 void SceneRoulette::spinRoulette(AudioManager& audio, LedManager& led) {
     _isSpinning = true;
     _spinStartTime = millis();
-    _cruiseDuration = random(1700, 5200); // 隨機巡航時長：加上煞停滑行，總時長約 2.5 ~ 6.0 秒隨機！
+    _cruiseDuration = EntropyManager::random(1700, 5200); // 隨機巡航時長：加上煞停滑行，總時長約 2.5 ~ 6.0 秒隨機！
     audio.playDiceRoll();
     led.setRainbowMode(true);
 }
@@ -53,7 +54,7 @@ void SceneRoulette::update(InputManager& input, AudioManager& audio, LedManager&
             _isSpinning = true;
             _spinStartTime = millis();
             _stripSpeed = input.isShaken ? 24.0f : 12.0f;
-            _cruiseDuration = random(1700, 5200); // 隨機 2.5 ~ 6.0 秒總時長
+            _cruiseDuration = EntropyManager::random(1700, 5200); // 隨機 2.5 ~ 6.0 秒總時長
             audio.playDiceRoll();
             led.setRainbowMode(true);
         }

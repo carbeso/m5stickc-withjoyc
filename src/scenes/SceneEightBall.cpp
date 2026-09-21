@@ -4,6 +4,7 @@
  */
 
 #include "scenes/SceneEightBall.h"
+#include "EntropyManager.h"
 
 // 經典英文八號球籤詩清單 (依據維基百科官方標準 20 款解答)
 const ClassicFortune CLASSIC_FORTUNES[] = {
@@ -50,7 +51,7 @@ void SceneEightBall::init() {
 }
 
 void SceneEightBall::startDivination(bool byBtn, AudioManager& audio, LedManager& led) {
-    _fortuneIdx = random(0, CLASSIC_COUNT);
+    _fortuneIdx = EntropyManager::random(0, CLASSIC_COUNT);
     _isRevealing = true;
     _isRevealed = false;
     _triggeredByBtn = byBtn;

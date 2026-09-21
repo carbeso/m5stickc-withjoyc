@@ -4,6 +4,7 @@
  */
 
 #include "scenes/SceneMenu.h"
+#include "EntropyManager.h"
 
 struct MenuItem {
     const char* name;
@@ -135,7 +136,7 @@ void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led
 
     // 4. 晃動機身：隨機選取遊戲
     if (input.isShaken) {
-        _selectedIdx = random(0, MENU_COUNT);
+        _selectedIdx = EntropyManager::random(0, MENU_COUNT);
         if (_selectedIdx < _topIdx) {
             _topIdx = _selectedIdx;
         } else if (_selectedIdx >= _topIdx + VISIBLE_CARDS) {

@@ -4,6 +4,7 @@
  */
 
 #include "scenes/SceneCoin.h"
+#include "EntropyManager.h"
 
 SceneCoin::SceneCoin()
     : _coinCount(1), _isFlipping(false), _triggeredByJoy(false),
@@ -31,7 +32,7 @@ void SceneCoin::tossCoins(bool byJoy, AudioManager& audio, LedManager& led) {
 
     // 預先決定各硬幣結果 (0: HEAD, 1: TAIL)
     for (int i = 0; i < _coinCount; i++) {
-        _coinResults[i] = random(0, 2);
+        _coinResults[i] = EntropyManager::random(0, 2);
     }
 
     audio.playClick();
