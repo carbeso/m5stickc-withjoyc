@@ -18,6 +18,7 @@ class SceneSpectrum : public Scene {
 public:
     SceneSpectrum();
     void init() override;
+    void exit() override;
     void update(InputManager& input, AudioManager& audio, LedManager& led) override;
     void draw() override;
     GameScene getSceneId() const override { return SCENE_SPECTRUM; }
