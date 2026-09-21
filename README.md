@@ -1,134 +1,136 @@
-# M5StickC Plus & MiniJoyC 掌上型紓壓玩具 (7-in-1 Fidget Toy)
+# M5StickC Plus & MiniJoyC 7-in-1 Handheld Fidget Toy
 
-一款專為 **M5StickC Plus** 搭配 **MiniJoyC HAT** 擴充模組設計的掌上型七合一紓壓互動玩具韌體系統。  
-整合直向高密度 LCD 視覺、無源蜂鳴器機械音效、SK6812 全彩氛圍燈、雙軸實體搖桿機械手感與 MPU6886 體感甩動操控，打造厚實、清脆且沉浸感十足的極致微動力學紓壓體驗。
+[English](README.md) | [繁體中文](README.zh-TW.md)
+
+A 7-in-1 interactive handheld fidget toy firmware system specifically designed for **M5StickC Plus** paired with the **MiniJoyC HAT** extension module.
+Integrating a high-density vertical IPS display, passive buzzer haptic sound effects, SK6812 RGB ambient lighting, dual-axis analog joystick tactile feedback, and MPU6886 motion gesture controls to deliver a rich, crisp, and immersive micro-kinetic fidgeting experience.
 
 ---
 
-## 🎮 七大紓壓遊戲一覽
+## 🎮 7 Fidget Games Overview
 
-| 遊戲名稱 | 畫面與核心特色 | 主要操控方式 | 視覺與物理動效 |
+| Game Name | Screen & Key Features | Primary Controls | Visuals & Physical Motion |
 | :--- | :--- | :--- | :--- |
-| **1. 多面骰子盒 (Dice Roller)** | 支援 1d4 至 6d100，單顆或多顆陳列 | 搖桿左右選面數、上下選顆數；按鍵/甩動擲骰 | 2.8 秒自然翻滾與煞停，單顆 d20 具備大成功/大失敗燈效，多顆即時總和結算 |
-| **2. 極簡幸運撲克 (Poker Draw)** | 52 張四花色 + 2 張大小王鬼牌，純大字極簡設計 | 搖桿推左切換模式；按鍵/甩動抽牌；長按重洗 | 支援「銷牌模式 (DECK)」與「單抽模式 (SINGLE)」，抽牌具備 0.4 秒高速切牌跳動動態 |
-| **3. 神秘八號球 (Magic 8-Ball)** | 收錄維基百科官方標準 20 款經典全英文占卜籤詩 | 按鍵或機身大力甩動占卜 | 水底翻騰 3 秒內呈現八號黑球本體與氣泡微波動態；揭曉呈現倒三角 ▼ (肯定)、正三角 ▲ (否定) 與菱形 ◆ (中立) |
-| **4. 垂直幸運輪盤 (Roulette)** | 標準歐式 37 格單零輪盤，直向奔馳垂直號碼帶 | 搖桿下拉長拉/短撥；按鍵/甩動啟動 | 2.5 ~ 6.0 秒隨機巡航時長不可預期；支援拉住持續飛轉，鬆開後自然滑行減速 |
-| **5. 3×3 老虎機 (Slot 3x3)** | 經典九宮格 7 款幸運符號，無賭博負擔純紓壓 | 搖桿強烈下拉模擬機械拉桿；鬆開依序煞停 | 下拉持續全速旋轉；鬆開後三輪依序煞停（咔、咔、叮！）；中獎動態顯示線數與彩虹燈 |
-| **6. 多枚擲硬幣 (Coin Toss)** | 支援 1 ~ 5 枚金幣同時拋擲，人頭與 10 元面刻劃 | 搖桿左右單次切換枚數；下拉長拉/甩動拋擲 | 3D 壓縮旋轉透視感與清脆摩擦音；2 枚以上落地自動統計正面 (H) 與反面 (T) 總數 |
-| **7. 剪刀石頭布 (RPS Duel)** | 支援 1 手單人模式或 2 手上下分割對決模式 | 搖桿左右單次切換手數；下拉長拉/甩動出拳 | 拳頭 ✊、剪刀 ✌、布 ✋ 向量剪影；長拉飛速輪替；雙手停定後自動判定勝負 (P1/P2/TIE) |
+| **1. Multi-Sided Dice Roller** | Supports 1d4 to 6d100 in single or multi-dice layouts | Joystick L/R for die type, U/D for count; Button/Shake to roll | 2.8s natural tumbling dynamic; single d20 critical hit/fail LED effects; real-time sum calculation |
+| **2. Minimalist Poker Draw** | 52 standard cards + 2 Jokers in clear minimalist typography | Joystick Left to toggle mode; Button/Shake to draw; Hold to reshuffle | Supports "DECK" mode (discard) and "SINGLE" draw mode with 0.4s high-speed deck card flipper animation |
+| **3. Magic 8-Ball** | Features Wikipedia standard 20 classic English fortune answers | Button press or firm device shake to reveal answer | 3s underwater churn animation with floating 8-ball & bubble particle dynamics; reveals answer in ▼ (Affirmative), ▲ (Negative), or ◆ (Neutral) |
+| **4. Vertical Roulette** | European 37-pocket single-zero roulette wheel with vertical scrolling strip | Joystick pull-down (hold/flick); Button/Shake to spin | 2.5s ~ 6.0s randomized cruising duration; supports continuous spinning while held, with realistic friction deceleration |
+| **5. 3×3 Slot Machine** | Classic 3x3 grid with 7 lucky symbols for pure fidget fun | Strong joystick pull-down to simulate mechanical lever; release to stop | Continuous full-speed spin while pulled down; reels stop sequentially on release (Clack, Clack, Chime!); win line & rainbow LED animation |
+| **6. Multi-Coin Toss** | Supports tossing 1 to 5 coins simultaneously with detailed heads/tails engravings | Joystick L/R to change coin count; Pull-down hold/Shake to toss | 3D compressed perspective flipping with crisp clinking sound; automatically counts Heads (H) & Tails (T) for ≥2 coins |
+| **7. RPS Duel (Rock-Paper-Scissors)** | Supports 1-Hand Single Player or 2-Hand Split Screen Duel | Joystick L/R to toggle mode; Pull-down hold/Shake to throw | Clean vector silhouettes for Rock ✊, Paper ✋, and Scissors ✌️; rapid cycling while pulled; automatic outcome judgment (P1/P2/TIE) |
 
 ---
 
-## 🛠️ 硬體規格與連接配置
+## 🛠️ Hardware Specifications & Pin Configuration
 
-- **主控平台**：M5StickC Plus
-  - **核心晶片**：ESP32-PICO-D4 (雙核 240MHz, 320KB SRAM, 4MB Flash, 2.4GHz Wi-Fi & BLE)
-  - **螢幕**：1.14 吋 ST7789v2 IPS TFT LCD (135 × 240 像素，直向模式)
-  - **電源管理**：AXP192 (內建電量計、充電檢測、動態背光調節)
-  - **姿態感測**：MPU6886 6 軸運動感測器 (3 軸加速度 + 3 軸陀螺儀)
-  - **音效輸出**：GPIO 2 內部無源蜂鳴器 (PWM 音效引擎)
-  - **正面按鍵**：Button A (GPIO 37)
-  - **側面按鍵**：Button B (GPIO 39)
-- **擴充底座**：M5Hat MiniJoyC
-  - **協同晶片**：STM32F030F4P6 (I2C 位址 `0x54`，SDA: GPIO 0, SCL: GPIO 26)
-  - **控制搖桿**：雙軸 8-bit 類比搖桿 (X: -128~127, Y: -128~127，死區設為 25)
-  - **搖桿按鍵**：下壓微動開關
-  - **氛圍燈效**：內建 1 顆 SK6812 全彩 RGB LED
+- **Master Unit**: M5StickC Plus
+  - **Core MCU**: ESP32-PICO-D4 (Dual-Core 240MHz, 320KB SRAM, 4MB Flash, 2.4GHz Wi-Fi & BLE)
+  - **Display**: 1.14" ST7789v2 IPS TFT LCD (135 × 240 pixels, Portrait Mode)
+  - **Power Management**: AXP192 (Built-in Coulomb meter, charging detection, dynamic backlight adjustment)
+  - **IMU Sensor**: MPU6886 6-axis Motion Sensor (3-axis Accelerometer + 3-axis Gyroscope)
+  - **Audio Output**: Internal Passive Buzzer on GPIO 2 (PWM audio engine)
+  - **Front Button**: Button A (GPIO 37)
+  - **Side Button**: Button B (GPIO 39)
+- **Extension Dock**: M5Hat MiniJoyC
+  - **Coprocessor**: STM32F030F4P6 (I2C Address `0x54`, SDA: GPIO 0, SCL: GPIO 26)
+  - **Joystick**: Dual-axis 8-bit analog joystick (X: -128~127, Y: -128~127, deadzone set to 25)
+  - **Joystick Button**: Center tactile push switch
+  - **Ambient Light**: Built-in 1x SK6812 Full-Color RGB LED
 
 ---
 
-## 🕹️ 全域系統操作守則
+## 🕹️ Global System Controls
 
 ```
-                           [開機畫面: 7-in-1 System]
+                           [Boot Screen: 7-in-1 System]
                                       │
                                       ▼
                       ┌───────────────────────────────┐
-                      │    全域主選單 (Fidget OS)      │ <─── 任何遊戲中長按 Button B (> 0.5s)
-                      │ 3 卡片可捲動視窗 (搖桿上下推) │
+                      │    Global Main Menu (Fidget OS)│ <─── Long press Button B (> 0.5s) in any game
+                      │ 3-Card Scroll View (Joy Up/Dn)│
                       └───────────────┬───────────────┘
           ┌──────────────┬────────────┼────────────┬──────────────┐
           ▼              ▼            ▼            ▼              ▼
-     🎲 骰子盒       🃏 撲克      🎱 八號球    🎡 輪盤       🎰 老虎機
+     🎲 Dice Box     🃏 Poker     🎱 8-Ball    🎡 Roulette    🎰 Slot Machine
                                                            ┌──────┴──────┐
                                                            ▼             ▼
-                                                      🪙 擲硬幣      ✌️ 猜拳對決
+                                                      🪙 Coin Toss   ✌️ RPS Duel
 ```
 
-### 1. 主選單導航
-- **搖桿上下推**：在 7 款遊戲卡片間平滑滾動（支援首尾循環導航，右側具備動態滑塊捲動條）。
-- **Button A / 搖桿中心鍵**：確認進入所選遊戲。
-- **搖桿左右推**：循環調節螢幕背光亮度（35% → 70% → 100%）。
-- **短按 Button B**：一鍵切換全域聲音開關（`[SND ON]` / `[MUTE]`）。
-- **機身大力甩動**：隨機抽取一款遊戲進入。
-- **頂部狀態列**：即時顯示電池電壓換算百分比（如 `85%`）與充電狀態（如 `+95%`）。
+### 1. Main Menu Navigation
+- **Joystick Up/Down**: Smoothly scroll through 7 game cards (supports loop navigation with dynamic scrollbar indicator).
+- **Button A / Joystick Click**: Confirm and enter selected game.
+- **Joystick Left/Right**: Cycle through screen backlight brightness levels (35% → 70% → 100%).
+- **Short Press Button B**: Toggle global system audio (`[SND ON]` / `[MUTE]`).
+- **Firm Device Shake**: Randomly select and launch a game.
+- **Top Status Bar**: Real-time display of battery voltage converted percentage (e.g., `85%`) and charging status (e.g., `+95%`).
 
-### 2. 遊戲內通用手勢
-- **長按 Button B (> 500ms)**：立即退出當前遊戲，返回主選單。
-- **下拉搖桿維持 (joyY > 35)**：在輪盤、老虎機、硬幣、猜拳中進入**持續全速飛轉**模式；放開搖桿後進入自然衰減與煞車時序。
-- **體感大力甩動**：任何時候用力甩手機身即可觸發遊戲動作。
+### 2. Universal In-Game Gestures
+- **Long Press Button B (> 500ms)**: Instantly exit current game and return to Main Menu.
+- **Pull Down & Hold Joystick (joyY > 35)**: Triggers continuous full-speed spinning in Roulette, Slot Machine, Coin Toss, and RPS Duel; releasing joystick starts natural deceleration and braking sequence.
+- **Motion Shake**: Firmly shaking the device at any time triggers in-game actions (rolling, flipping, shuffling).
 
 ---
 
-## 💻 快速上手與本地開發 (回家接手指南)
+## 💻 Quick Start & Local Development
 
-本專案使用標準 **PlatformIO** 進行開發、依賴管理、編譯與燒錄。
+This project uses standard **PlatformIO** for development, dependency management, compilation, and flashing.
 
-### 1. 環境需求
-- 安裝 [VS Code](https://code.visualstudio.com/) 與 **PlatformIO IDE** 擴充套件（或獨立 PlatformIO Core CLI）。
-- 實機連接：使用 Type-C 傳輸線連接 M5StickC Plus，確認裝置管理員出現 `CH9102` 或 `CP210x` 虛擬序列埠（例如 `COM3`）。
+### 1. Prerequisites
+- Install [VS Code](https://code.visualstudio.com/) and the **PlatformIO IDE** extension (or standalone PlatformIO Core CLI).
+- Connect Hardware: Connect M5StickC Plus via a USB Type-C cable and verify the serial port (`CH9102` or `CP210x`, e.g., `COM3`) appears in Device Manager.
 
-### 2. 下載專案
+### 2. Clone Repository
 ```bash
 git clone https://github.com/carbeso/m5stickc-withjoyc.git
 cd m5stickc-withjoyc
-git checkout dev  # 建議於 dev 分支進行功能開發
+git checkout dev  # Recommended branch for feature development
 ```
 
-### 3. 編譯與燒錄常用指令
-在專案根目錄開啟終端機（PowerShell 或 CMD）：
+### 3. Compilation & Flashing Commands
+Open terminal in the project root directory:
 
 ```bash
-# 1. 僅執行編譯檢查 (驗證語法與依賴庫)
+# 1. Compilation check (verify syntax and dependencies)
 pio run
 
-# 2. 編譯並燒錄至裝置 (自動偵測或使用 COM3)
+# 2. Build and flash to device (auto-detect port or specify)
 pio run -t upload
 
-# 3. 指定序列埠燒錄
+# 3. Flash to specific serial port
 pio run -t upload --upload-port COM3
 
-# 4. 開啟序列埠除錯監視器 (Baud rate: 115200)
+# 4. Open Serial Monitor (Baud rate: 115200)
 pio device monitor -b 115200
 ```
 
 ---
 
-## 📂 專案架構目錄說明
+## 📂 Project Structure
 
 ```text
 m5stickc-withjoyc/
-├── include/                   # 標頭檔目錄
-│   ├── Config.h               # 全域腳位、場景枚舉、顏色常數定義
-│   ├── InputManager.h         # 搖桿、按鍵、IMU 體感手勢防呆狀態機
-│   ├── AudioManager.h         # 非阻塞無源蜂鳴器音效管理器
-│   ├── LedManager.h           # SK6812 全彩氛圍燈效管理器
-│   └── scenes/                # 各遊戲場景類別標頭檔
-│       ├── Scene.h            # 場景基礎抽象介面
-│       ├── SceneMenu.h        # 3 卡片滾動視窗主選單
-│       ├── SceneDice.h        # 多面骰子盒
-│       ├── ScenePoker.h       # 極簡幸運撲克
-│       ├── SceneEightBall.h   # 純英文經典八號球
-│       ├── SceneRoulette.h    # 垂直歐式輪盤
-│       ├── SceneSlot.h        # 3x3 角子老虎機
-│       ├── SceneCoin.h        # 多枚擲硬幣
-│       └── SceneRPS.h         # 剪刀石頭布對決
-├── src/                       # 程式碼實作目錄
-│   ├── main.cpp               # 系統入口點、setup/loop、場景調度器
-│   ├── InputManager.cpp       # 搖桿死區、脈衝觸發、晃動判定演算法
-│   ├── AudioManager.cpp       # PWM 音調產生與非阻塞計時器
-│   ├── LedManager.cpp         # RGB/HSV 漸層與閃爍管理
-│   └── scenes/                # 各遊戲場景具體渲染與邏輯實作
+├── include/                   # Header files
+│   ├── Config.h               # Global pins, scene enums, color constants
+│   ├── InputManager.h         # Joystick, button, IMU state machine
+│   ├── AudioManager.h         # Non-blocking passive buzzer audio manager
+│   ├── LedManager.h           # SK6812 RGB ambient light manager
+│   └── scenes/                # Game scene class headers
+│       ├── Scene.h            # Base abstract scene interface
+│       ├── SceneMenu.h        # 3-card scrolling main menu
+│       ├── SceneDice.h        # Multi-sided dice roller
+│       ├── ScenePoker.h       # Minimalist poker draw
+│       ├── SceneEightBall.h   # Classic Magic 8-Ball
+│       ├── SceneRoulette.h    # Vertical European roulette
+│       ├── SceneSlot.h        # 3x3 Slot machine
+│       ├── SceneCoin.h        # Multi-coin toss
+│       └── SceneRPS.h         # Rock-Paper-Scissors duel
+├── src/                       # Implementation source code
+│   ├── main.cpp               # Entry point, setup/loop, scene scheduler
+│   ├── InputManager.cpp       # Joystick deadzone, pulse trigger, shake detection
+│   ├── AudioManager.cpp       # PWM tone generator and non-blocking timers
+│   ├── LedManager.cpp         # RGB/HSV gradient and flashing effects
+│   └── scenes/                # Game scene logic and rendering implementation
 │       ├── SceneMenu.cpp
 │       ├── SceneDice.cpp
 │       ├── ScenePoker.cpp
@@ -137,22 +139,23 @@ m5stickc-withjoyc/
 │       ├── SceneSlot.cpp
 │       ├── SceneCoin.cpp
 │       └── SceneRPS.cpp
-├── lib/                       # 本地特化驅動庫
-│   └── M5HatMiniJoyC/         # MiniJoyC HAT 協同晶片 I2C 通訊驅動
-├── docs/                      # 規格與技術手冊
-│   ├── GAME_SPECS.md          # 七合一完整遊戲規格書
-│   ├── DEVELOPMENT_GUIDE.md   # 架構原理與接手維護指南
-│   └── hardware/              # 硬體規格與 Datasheet
-├── platformio.ini             # PlatformIO 專案設定檔 (依賴庫、晶片定義)
-└── README.md                  # 專案介紹與操作指引 (本文件)
+├── lib/                       # Local driver libraries
+│   └── M5HatMiniJoyC/         # MiniJoyC HAT coprocessor I2C driver
+├── docs/                      # Specifications and manuals
+│   ├── GAME_SPECS.md          # Complete 7-in-1 game specification
+│   ├── DEVELOPMENT_GUIDE.md   # System architecture and maintenance guide
+│   └── hardware/              # Hardware specifications and datasheets
+├── platformio.ini             # PlatformIO configuration file
+├── README.zh-TW.md            # Traditional Chinese README
+└── README.md                  # Main English README (this document)
 ```
 
 ---
 
-## 📜 開發維護守則 (Git Guidelines)
+## 📜 Development Guidelines
 
-- **分支紀律**：
-  - 日常功能開發請一律於 `dev` 或 `feature/...` 分支執行。
-  - `main` 分支保持最穩定且隨時可交付之正式版本。
-  - 提交前必須本地執行 `pio run` 確保 exit code 為 0。
-  - 嚴禁使用 `git add .`，提交時請精確指定檔案路徑（如 `git add src/main.cpp`）。
+- **Branch Discipline**:
+  - Daily feature development must take place on `dev` or `feature/...` branches.
+  - The `main` branch remains stable and ready for release.
+  - Always run `pio run` locally and verify exit code is 0 before committing.
+  - Avoid `git add .`; explicitly specify file paths when staging (e.g., `git add README.md README.zh-TW.md`).
