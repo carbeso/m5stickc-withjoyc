@@ -173,11 +173,7 @@ void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led
         }
     }
 
-    // 7. 全域無操作閒置 60 秒：自動進入待機休眠
-    if (now - input.lastActivityTime > 60000) {
-        _nextScene = SCENE_STANDBY;
-        return;
-    }
+    // 全域閒置休眠邏輯已由 main.cpp 統一以 90 秒判定管理
 
     // 設定 LED 燈色配合當前選中遊戲
     led.setHexColor(
