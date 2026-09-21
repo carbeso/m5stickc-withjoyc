@@ -288,9 +288,9 @@ void SceneSand::update(InputManager& input, AudioManager& audio, LedManager& led
 
     if (isAddingSand && (now - _lastSpawnTime > 75)) {
         _lastSpawnTime = now;
-        // 映射搖桿座標至網格
+        // 映射搖桿座標至網格 (joyY < 0 向上推對應網格頂部 6，joyY > 0 向下推對應網格底部 GRID_H - 12)
         int spawnGx = map(joyX, -100, 100, 8, GRID_W - 9);
-        int spawnGy = map(joyY, -100, 100, GRID_H - 12, 6);
+        int spawnGy = map(joyY, -100, 100, 6, GRID_H - 12);
         spawnSand(spawnGx, spawnGy, 5);
         _needsRedraw = true;
     }
