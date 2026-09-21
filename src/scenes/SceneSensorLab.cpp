@@ -1,11 +1,27 @@
-/**
+﻿/**
  * @file SceneSensorLab.cpp
- * @brief 感測器實驗室 (Sensor Lab) 儀表板實作：水平儀、G-Force 追蹤、RF 掃描與 LED 工作室
+ * @brief 感測器實驗室 (Sensor Lab) 儀表板實作：水平儀、G-Force 追蹤、2.4G Wi-Fi 掃描、BLE 藍牙掃描與 LED 工作室
  */
 
 #include "scenes/SceneSensorLab.h"
 #include <cmath>
 
+// Wi-Fi 加密類型轉文字描述
+static const char* getAuthModeStr(wifi_auth_mode_t authMode) {
+    switch (authMode) {
+        case WIFI_AUTH_OPEN:            return "OPEN";
+        case WIFI_AUTH_WEP:             return "WEP";
+        case WIFI_AUTH_WPA_PSK:         return "WPA";
+        case WIFI_AUTH_WPA2_PSK:        return "WPA2";
+        case WIFI_AUTH_WPA_WPA2_PSK:    return "WPA/2";
+        case WIFI_AUTH_WPA2_ENTERPRISE: return "EAP";
+        case WIFI_AUTH_WPA3_PSK:        return "WPA3";
+        case WIFI_AUTH_WPA2_WPA3_PSK:   return "WPA2/3";
+        default:                        return "OTHER";
+    }
+}
+
+// HSV 轉 RGB 通用函式
 static void hsvToRgb(int h, float s, float v, uint8_t& r, uint8_t& g, uint8_t& b) {
     float c = v * s;
     float x = c * (1.0f - fabsf(fmodf((float)h / 60.0f, 2.0f) - 1.0f));
@@ -24,17 +40,48 @@ static void hsvToRgb(int h, float s, float v, uint8_t& r, uint8_t& g, uint8_t& b
     b = (uint8_t)((bf + m) * 255.0f);
 }
 
+// BLE 廣播設備回呼類別
+class LabBleCallbacks : public BLEAdvertisedDeviceCallbacks {
+public:
+    LabBleCallbacks(SceneSensorLab* lab) : _lab(lab) {}
+    void onResult(BLEAdvertisedDevice advertisedDevice) override {
+        if (_lab) {
+            std::string name = advertisedDevice.getName();
+            std::string addr = advertisedDevice.getAddress().toString();
+            int rssi = advertisedDevice.getRSSI();
+            _lab->onBleDeviceFound(name.c_str(), addr.c_str(), rssi);
+        }
+    }
+private:
+    SceneSensorLab* _lab;
+};
+
+static LabBleCallbacks* s_pBleCallbacks = nullptr;
+
 SceneSensorLab::SceneSensorLab()
     : _currentTab(TAB_LEVEL), _needsRedraw(true), _lastSampleTime(0),
       _bubbleX(0), _bubbleY(0), _targetBubbleX(0), _targetBubbleY(0), _isCentered(false), _lastCenterTick(0),
       _gHistIdx(0), _currentG(1.0f), _peakG(1.0f), _peakAx(0), _peakAy(0),
-      _isScanningWifi(false), _foundAps(0), _lastScanTime(0),
+      _isScanningWifi(false), _foundWifiAps(0), _wifiScrollOffset(0), _lastWifiScanTime(0),
+      _isScanningBle(false), _bleInitialized(false), _foundBleDevs(0), _bleScrollOffset(0), _bleScanStartTime(0),
       _hue(180), _brightness(80), _ledR(0), _ledG(200), _ledB(200) {
     for (uint8_t i = 0; i < G_HIST_SIZE; i++) _gHistory[i] = 1.0f;
-    for (uint8_t i = 0; i < 3; i++) {
-        _topAps[i].ssid[0] = '\0';
-        _topAps[i].rssi = -100;
+    for (uint8_t i = 0; i < MAX_WIFI_APS; i++) {
+        _wifiAps[i].ssid[0] = '\0';
+        _wifiAps[i].rssi = -100;
+        _wifiAps[i].channel = 1;
+        _wifiAps[i].encryption[0] = '\0';
     }
+    for (uint8_t i = 0; i < MAX_BLE_DEVS; i++) {
+        _bleDevs[i].name[0] = '\0';
+        _bleDevs[i].address[0] = '\0';
+        _bleDevs[i].rssi = -100;
+    }
+}
+
+SceneSensorLab::~SceneSensorLab() {
+    stopWifiScan();
+    stopBleScan();
 }
 
 void SceneSensorLab::init() {
@@ -44,20 +91,22 @@ void SceneSensorLab::init() {
     _lastSampleTime = millis();
     _peakG = 1.0f;
     _isScanningWifi = false;
+    _isScanningBle = false;
 
-    // 確保 Wi-Fi 預設關閉省電
+    // 預設關閉 Wi-Fi 射頻以節省功耗
     WiFi.mode(WIFI_OFF);
 }
 
+// ----------------------------------------------------
+// 水平儀 (Level) 邏輯與繪製
+// ----------------------------------------------------
 void SceneSensorLab::updateLevel(InputManager& input, AudioManager& audio) {
     float ax = 0, ay = 0, az = 0;
     M5.Imu.getAccelData(&ax, &ay, &az);
 
-    // 映射至中央靶盤 (-42 ~ 42px)
     _targetBubbleX = -ax * 42.0f;
     _targetBubbleY = ay * 42.0f;
 
-    // 物理阻尼低通濾波
     _bubbleX += (_targetBubbleX - _bubbleX) * 0.25f;
     _bubbleY += (_targetBubbleY - _bubbleY) * 0.25f;
 
@@ -77,7 +126,6 @@ void SceneSensorLab::drawLevel() {
     int centerX = SCREEN_WIDTH / 2;
     int centerY = 115;
 
-    // 繪製水平儀外圓與內十字準星
     uint16_t ringColor = _isCentered ? TFT_GREEN : 0x39E7;
     g_canvas.drawCircle(centerX, centerY, 48, ringColor);
     g_canvas.drawCircle(centerX, centerY, 24, 0x2124);
@@ -86,14 +134,12 @@ void SceneSensorLab::drawLevel() {
     g_canvas.drawFastHLine(centerX - 48, centerY, 96, 0x2124);
     g_canvas.drawFastVLine(centerX, centerY - 48, 96, 0x2124);
 
-    // 繪製氣泡 (實心圓)
     int bx = centerX + (int)_bubbleX;
     int by = centerY + (int)_bubbleY;
     uint16_t bubbleColor = _isCentered ? TFT_GREEN : COLOR_CYAN;
     g_canvas.fillCircle(bx, by, 7, bubbleColor);
     g_canvas.drawCircle(bx, by, 7, TFT_WHITE);
 
-    // 數值面板
     char infoStr[32];
     snprintf(infoStr, sizeof(infoStr), "X:%+.1f  Y:%+.1f", _bubbleX / 4.2f, _bubbleY / 4.2f);
     g_canvas.setTextColor(_isCentered ? TFT_GREEN : COLOR_SILVER, TFT_BLACK);
@@ -108,9 +154,12 @@ void SceneSensorLab::drawLevel() {
     }
 }
 
+// ----------------------------------------------------
+// G-Force 追蹤器邏輯與繪製
+// ----------------------------------------------------
 void SceneSensorLab::updateGTracker(InputManager& input) {
     uint32_t now = millis();
-    if (now - _lastSampleTime >= 100) { // 10Hz 取樣
+    if (now - _lastSampleTime >= 100) {
         _lastSampleTime = now;
         float ax = 0, ay = 0, az = 0;
         M5.Imu.getAccelData(&ax, &ay, &az);
@@ -119,7 +168,6 @@ void SceneSensorLab::updateGTracker(InputManager& input) {
         _gHistory[_gHistIdx] = _currentG;
         _gHistIdx = (_gHistIdx + 1) % G_HIST_SIZE;
 
-        // 計算 5 秒歷史峰值
         float maxVal = 1.0f;
         for (uint8_t i = 0; i < G_HIST_SIZE; i++) {
             if (_gHistory[i] > maxVal) maxVal = _gHistory[i];
@@ -135,7 +183,6 @@ void SceneSensorLab::updateGTracker(InputManager& input) {
 void SceneSensorLab::drawGTracker() {
     int centerX = SCREEN_WIDTH / 2;
 
-    // 1. 即時 G 與峰值顯示 (Y: 36 ~ 75)
     char gStr[16];
     snprintf(gStr, sizeof(gStr), "%.2f G", _currentG);
     uint16_t gColor = (_currentG > 2.5f) ? TFT_RED : (_currentG > 1.5f) ? COLOR_GOLD : TFT_GREEN;
@@ -147,14 +194,13 @@ void SceneSensorLab::drawGTracker() {
     g_canvas.setTextColor(COLOR_CYAN, TFT_BLACK);
     g_canvas.drawCentreString(peakStr, centerX, 68, 2);
 
-    // 2. 5 秒滑動歷史長條圖 (Y: 95 ~ 165，高 70px)
     int chartX = 15;
     int chartY = 95;
-    int chartW = SCREEN_WIDTH - 30; // 105px
+    int chartW = SCREEN_WIDTH - 30;
     int chartH = 65;
 
     g_canvas.drawRect(chartX, chartY, chartW, chartH, 0x2965);
-    g_canvas.drawFastHLine(chartX, chartY + chartH - 16, chartW, 0x18C3); // 1.0G 基準線
+    g_canvas.drawFastHLine(chartX, chartY + chartH - 16, chartW, 0x18C3);
 
     for (uint8_t i = 0; i < G_HIST_SIZE && i * 2 < chartW; i++) {
         uint8_t readIdx = (_gHistIdx + i) % G_HIST_SIZE;
@@ -169,7 +215,6 @@ void SceneSensorLab::drawGTracker() {
         g_canvas.drawFastVLine(bx, by, barH, bColor);
     }
 
-    // 3. 受力方向與提示 (Y: 175 ~ 205)
     char dirStr[32];
     snprintf(dirStr, sizeof(dirStr), "Vector Ax:%+.1f Ay:%+.1f", _peakAx, _peakAy);
     g_canvas.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
@@ -179,12 +224,94 @@ void SceneSensorLab::drawGTracker() {
     g_canvas.drawCentreString("Shake or slam to test G-Force", centerX, 192, 1);
 }
 
+// ----------------------------------------------------
+// 科技感 360 度旋轉雷達掃描指針與波紋動效 (通用雙緩衝)
+// ----------------------------------------------------
+void SceneSensorLab::drawRadarAnimation(const char* title, const char* subtitle, uint16_t primaryColor) {
+    int centerX = SCREEN_WIDTH / 2;
+    int centerY = 112;
+    int radius = 45;
+
+    // 標題與說明
+    g_canvas.setTextColor(primaryColor, TFT_BLACK);
+    g_canvas.drawCentreString(title, centerX, 30, 2);
+    g_canvas.setTextColor(COLOR_SILVER, TFT_BLACK);
+    g_canvas.drawCentreString(subtitle, centerX, 50, 1);
+
+    // 雙層外環與十字網格
+    g_canvas.drawCircle(centerX, centerY, radius, primaryColor);
+    g_canvas.drawCircle(centerX, centerY, radius - 1, 0x18C3);
+    g_canvas.drawCircle(centerX, centerY, 15, 0x1183);
+    g_canvas.drawCircle(centerX, centerY, 30, 0x19E3);
+
+    g_canvas.drawFastHLine(centerX - radius + 2, centerY, (radius - 2) * 2, 0x1183);
+    g_canvas.drawFastVLine(centerX, centerY - radius + 2, (radius - 2) * 2, 0x1183);
+
+    // 動態向外擴散的同心波紋
+    uint32_t tick = millis();
+    int rip1 = (tick / 20) % radius;
+    int rip2 = ((tick / 20) + radius / 2) % radius;
+    if (rip1 > 2) g_canvas.drawCircle(centerX, centerY, rip1, 0x2286);
+    if (rip2 > 2) g_canvas.drawCircle(centerX, centerY, rip2, 0x2286);
+
+    // 360 度旋轉指針與扇形餘輝
+    float currentDeg = (float)((tick / 4) % 360);
+    float rad = currentDeg * 0.0174532925f;
+
+    for (int i = 3; i >= 1; i--) {
+        float trailRad = (currentDeg - i * 3.5f) * 0.0174532925f;
+        int tx = centerX + (int)(cosf(trailRad) * (radius - 3));
+        int ty = centerY + (int)(sinf(trailRad) * (radius - 3));
+        uint16_t fadeColor = (i == 1) ? 0x23E6 : (i == 2) ? 0x1344 : 0x0982;
+        g_canvas.drawLine(centerX, centerY, tx, ty, fadeColor);
+    }
+
+    int endX = centerX + (int)(cosf(rad) * (radius - 2));
+    int endY = centerY + (int)(sinf(rad) * (radius - 2));
+    g_canvas.drawLine(centerX, centerY, endX, endY, TFT_WHITE);
+    g_canvas.drawPixel(endX, endY, primaryColor);
+
+    // 模擬信標亮點 (Radar Blips)
+    if ((tick / 200) % 2 == 0) {
+        g_canvas.fillCircle(centerX + 18, centerY - 14, 2, primaryColor);
+        g_canvas.fillCircle(centerX - 16, centerY + 20, 2, TFT_WHITE);
+    }
+    if ((tick / 350) % 2 == 1) {
+        g_canvas.fillCircle(centerX + 26, centerY + 16, 2, COLOR_GOLD);
+    }
+
+    // 底部動態搜尋文字
+    int dotCount = (tick / 250) % 4;
+    char dotBuf[5] = "...";
+    dotBuf[dotCount] = '\0';
+    char statusBuf[32];
+    snprintf(statusBuf, sizeof(statusBuf), "SEARCHING%s", dotBuf);
+    g_canvas.setTextColor(primaryColor, TFT_BLACK);
+    g_canvas.drawCentreString(statusBuf, centerX, 168, 1);
+    g_canvas.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    g_canvas.drawCentreString("Please wait a moment", centerX, 182, 1);
+}
+
+// ----------------------------------------------------
+// 2.4G Wi-Fi 掃描器邏輯與可捲動清單繪製
+// ----------------------------------------------------
 void SceneSensorLab::startWifiScan() {
+    stopBleScan();
     _isScanningWifi = true;
-    _lastScanTime = millis();
+    _foundWifiAps = 0;
+    _wifiScrollOffset = 0;
+    _lastWifiScanTime = millis();
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
-    WiFi.scanNetworks(true); // 非同步背景掃描
+    WiFi.scanNetworks(true);
+}
+
+void SceneSensorLab::stopWifiScan() {
+    if (_isScanningWifi) {
+        WiFi.scanDelete();
+        WiFi.mode(WIFI_OFF);
+        _isScanningWifi = false;
+    }
 }
 
 void SceneSensorLab::updateRfScanner(InputManager& input, AudioManager& audio) {
@@ -196,21 +323,64 @@ void SceneSensorLab::updateRfScanner(InputManager& input, AudioManager& audio) {
     }
 
     if (_isScanningWifi) {
+        _needsRedraw = true;
         int16_t n = WiFi.scanComplete();
         if (n >= 0) {
             _isScanningWifi = false;
-            _foundAps = (n > 3) ? 3 : n;
+            _foundWifiAps = (n > MAX_WIFI_APS) ? MAX_WIFI_APS : (uint8_t)n;
 
-            // 擷取訊號最強的前 3 個 AP
-            for (uint8_t i = 0; i < _foundAps; i++) {
+            for (uint8_t i = 0; i < _foundWifiAps; i++) {
                 String s = WiFi.SSID(i);
-                snprintf(_topAps[i].ssid, sizeof(_topAps[i].ssid), "%s", s.c_str());
-                _topAps[i].rssi = WiFi.RSSI(i);
+                if (s.length() == 0) {
+                    snprintf(_wifiAps[i].ssid, sizeof(_wifiAps[i].ssid), "[Hidden SSID]");
+                } else {
+                    snprintf(_wifiAps[i].ssid, sizeof(_wifiAps[i].ssid), "%s", s.c_str());
+                }
+                _wifiAps[i].rssi = WiFi.RSSI(i);
+                _wifiAps[i].channel = WiFi.channel(i);
+                wifi_auth_mode_t enc = WiFi.encryptionType(i);
+                snprintf(_wifiAps[i].encryption, sizeof(_wifiAps[i].encryption), "%s", getAuthModeStr(enc));
             }
+
+            // 依 RSSI 降冪排序 (最強 AP 排在最前面)
+            for (uint8_t i = 0; i < _foundWifiAps; i++) {
+                for (uint8_t j = i + 1; j < _foundWifiAps; j++) {
+                    if (_wifiAps[j].rssi > _wifiAps[i].rssi) {
+                        WifiScanResult tmp = _wifiAps[i];
+                        _wifiAps[i] = _wifiAps[j];
+                        _wifiAps[j] = tmp;
+                    }
+                }
+            }
+
             WiFi.scanDelete();
-            WiFi.mode(WIFI_OFF); // 掃描完成立即釋放射頻
+            WiFi.mode(WIFI_OFF);
             audio.playTick();
             _needsRedraw = true;
+        }
+        return;
+    }
+
+    // 支援搖桿上下捲動檢視最多 15 筆 AP
+    if (_foundWifiAps > 4) {
+        int maxOffset = _foundWifiAps - 4;
+        static uint32_t lastScrollTick = 0;
+        uint32_t now = millis();
+
+        if (input.joyPulledDown || (input.joyY > 50 && now - lastScrollTick > 180)) {
+            if (_wifiScrollOffset < maxOffset) {
+                _wifiScrollOffset++;
+                audio.playTick();
+                _needsRedraw = true;
+                lastScrollTick = now;
+            }
+        } else if (input.joyPushedUp || (input.joyY < -50 && now - lastScrollTick > 180)) {
+            if (_wifiScrollOffset > 0) {
+                _wifiScrollOffset--;
+                audio.playTick();
+                _needsRedraw = true;
+                lastScrollTick = now;
+            }
         }
     }
 }
@@ -218,48 +388,284 @@ void SceneSensorLab::updateRfScanner(InputManager& input, AudioManager& audio) {
 void SceneSensorLab::drawRfScanner() {
     int centerX = SCREEN_WIDTH / 2;
 
-    g_canvas.setTextColor(COLOR_GOLD, TFT_BLACK);
-    g_canvas.drawCentreString("2.4G RF SCANNER", centerX, 35, 2);
-
     if (_isScanningWifi) {
-        g_canvas.setTextColor(COLOR_CYAN, TFT_BLACK);
-        g_canvas.drawCentreString("SCANNING RF...", centerX, 95, 2);
-        g_canvas.drawRoundRect(20, 125, SCREEN_WIDTH - 40, 6, 2, 0x39E7);
-        int dotX = 20 + ((millis() / 50) % (SCREEN_WIDTH - 44));
-        g_canvas.fillRect(dotX, 126, 8, 4, TFT_GREEN);
+        drawRadarAnimation("2.4G RF SCANNER", "Scanning Wi-Fi APs...", COLOR_GOLD);
+        return;
+    }
+
+    // 標題列：呈現掃描 AP 筆數與當前頁次
+    char titleBuf[32];
+    snprintf(titleBuf, sizeof(titleBuf), "Wi-Fi APs: %d", _foundWifiAps);
+    g_canvas.setTextColor(COLOR_GOLD, TFT_BLACK);
+    g_canvas.drawString(titleBuf, 8, 28, 2);
+
+    if (_foundWifiAps > 0) {
+        char pageBuf[16];
+        snprintf(pageBuf, sizeof(pageBuf), "%d-%d", _wifiScrollOffset + 1, min((int)_wifiScrollOffset + 4, (int)_foundWifiAps));
+        g_canvas.setTextColor(COLOR_SILVER, TFT_BLACK);
+        g_canvas.drawRightString(pageBuf, SCREEN_WIDTH - 8, 30, 1);
+    }
+
+    if (_foundWifiAps == 0) {
+        g_canvas.setTextColor(TFT_DARKGREY, TFT_BLACK);
+        g_canvas.drawCentreString("No APs Found", centerX, 95, 2);
+        g_canvas.drawCentreString("Click Joy to Scan", centerX, 115, 1);
     } else {
-        if (_foundAps == 0) {
-            g_canvas.setTextColor(TFT_DARKGREY, TFT_BLACK);
-            g_canvas.drawCentreString("No APs / Click Joy", centerX, 95, 2);
-            g_canvas.drawCentreString("to start Scan", centerX, 115, 1);
-        } else {
-            for (uint8_t i = 0; i < _foundAps; i++) {
-                int y = 65 + i * 40;
-                g_canvas.drawRoundRect(10, y, SCREEN_WIDTH - 20, 34, 3, 0x2965);
+        // 每頁呈現 4 筆項目
+        uint8_t visibleCount = min((uint8_t)4, (uint8_t)(_foundWifiAps - _wifiScrollOffset));
+        for (uint8_t i = 0; i < visibleCount; i++) {
+            uint8_t idx = _wifiScrollOffset + i;
+            int y = 46 + i * 38;
 
-                // SSID
-                g_canvas.setTextColor(TFT_WHITE, TFT_BLACK);
-                g_canvas.drawString(_topAps[i].ssid, 16, y + 5, 1);
+            g_canvas.fillRoundRect(6, y, 116, 35, 3, 0x0841);
+            g_canvas.drawRoundRect(6, y, 116, 35, 3, 0x2104);
 
-                // RSSI 與訊號強度條
-                char rssiStr[16];
-                snprintf(rssiStr, sizeof(rssiStr), "%d dBm", (int)_topAps[i].rssi);
-                uint16_t sigColor = (_topAps[i].rssi > -60) ? TFT_GREEN :
-                                    (_topAps[i].rssi > -75) ? COLOR_GOLD : TFT_RED;
-                g_canvas.setTextColor(sigColor, TFT_BLACK);
-                g_canvas.drawRightString(rssiStr, SCREEN_WIDTH - 16, y + 5, 1);
+            // 行 1：SSID 名稱 (長度過長自動截斷)
+            char shortSsid[16];
+            snprintf(shortSsid, sizeof(shortSsid), "%s", _wifiAps[idx].ssid);
+            g_canvas.setTextColor(TFT_WHITE, 0x0841);
+            g_canvas.drawString(shortSsid, 10, y + 4, 1);
 
-                // 訊號進度條
-                int barW = map(constrain(_topAps[i].rssi, -95, -35), -95, -35, 4, SCREEN_WIDTH - 36);
-                g_canvas.fillRect(16, y + 22, barW, 4, sigColor);
+            // 右側 RSSI 數值
+            char rssiStr[16];
+            snprintf(rssiStr, sizeof(rssiStr), "%ddB", (int)_wifiAps[idx].rssi);
+            uint16_t sigColor = (_wifiAps[idx].rssi > -65) ? TFT_GREEN :
+                                (_wifiAps[idx].rssi > -80) ? COLOR_GOLD : TFT_RED;
+            g_canvas.setTextColor(sigColor, 0x0841);
+            g_canvas.drawRightString(rssiStr, 118, y + 4, 1);
+
+            // 行 2：Channel 與加密模式 (例如 "CH6 [WPA2]")
+            char metaStr[24];
+            snprintf(metaStr, sizeof(metaStr), "CH%d [%s]", (int)_wifiAps[idx].channel, _wifiAps[idx].encryption);
+            g_canvas.setTextColor(COLOR_CYAN, 0x0841);
+            g_canvas.drawString(metaStr, 10, y + 20, 1);
+
+            // 右下角 4 段階梯 Wi-Fi 訊號條
+            int bars = (_wifiAps[idx].rssi > -55) ? 4 :
+                       (_wifiAps[idx].rssi > -70) ? 3 :
+                       (_wifiAps[idx].rssi > -85) ? 2 : 1;
+            for (int b = 0; b < 4; b++) {
+                int barH = 2 + b * 2;
+                int bx = 104 + b * 4;
+                int by = y + 30 - barH;
+                uint16_t bc = (b < bars) ? sigColor : 0x2104;
+                g_canvas.fillRect(bx, by, 3, barH, bc);
             }
+        }
+
+        // 右側捲軸指示條 (Scroll Bar)
+        if (_foundWifiAps > 4) {
+            int trackH = 146;
+            int thumbH = max(16, trackH * 4 / _foundWifiAps);
+            int thumbY = 46 + (_wifiScrollOffset * (trackH - thumbH)) / (_foundWifiAps - 4);
+            g_canvas.drawFastVLine(128, 46, trackH, 0x18C3);
+            g_canvas.fillRect(127, thumbY, 3, thumbH, COLOR_GOLD);
         }
     }
 
     g_canvas.setTextColor(TFT_YELLOW, TFT_BLACK);
-    g_canvas.drawCentreString("Click Joy to Re-Scan", centerX, 195, 1);
+    g_canvas.drawCentreString("Joy Up/Dn:Scroll | Click:Scan", centerX, 201, 1);
 }
 
+// ----------------------------------------------------
+// BLE 藍牙掃描器邏輯與設備清單繪製
+// ----------------------------------------------------
+void SceneSensorLab::onBleDeviceFound(const char* name, const char* addr, int rssi) {
+    if (!addr) return;
+
+    for (uint8_t i = 0; i < _foundBleDevs; i++) {
+        if (strncmp(_bleDevs[i].address, addr, sizeof(_bleDevs[i].address)) == 0) {
+            _bleDevs[i].rssi = (int16_t)rssi;
+            if ((_bleDevs[i].name[0] == '\0' || strcmp(_bleDevs[i].name, "Unknown") == 0) &&
+                name && name[0] != '\0') {
+                snprintf(_bleDevs[i].name, sizeof(_bleDevs[i].name), "%s", name);
+            }
+            return;
+        }
+    }
+
+    if (_foundBleDevs < MAX_BLE_DEVS) {
+        snprintf(_bleDevs[_foundBleDevs].address, sizeof(_bleDevs[_foundBleDevs].address), "%s", addr);
+        if (name && name[0] != '\0') {
+            snprintf(_bleDevs[_foundBleDevs].name, sizeof(_bleDevs[_foundBleDevs].name), "%s", name);
+        } else {
+            snprintf(_bleDevs[_foundBleDevs].name, sizeof(_bleDevs[_foundBleDevs].name), "Unknown");
+        }
+        _bleDevs[_foundBleDevs].rssi = (int16_t)rssi;
+        _foundBleDevs++;
+    }
+}
+
+void SceneSensorLab::startBleScan() {
+    stopWifiScan(); // Wi-Fi 與 BLE 互斥共用射頻
+    if (!_bleInitialized) {
+        BLEDevice::init("M5StickC-Lab");
+        _bleInitialized = true;
+    }
+    _isScanningBle = true;
+    _foundBleDevs = 0;
+    _bleScrollOffset = 0;
+    _bleScanStartTime = millis();
+
+    BLEScan* pScan = BLEDevice::getScan();
+    if (pScan) {
+        if (!s_pBleCallbacks) {
+            s_pBleCallbacks = new LabBleCallbacks(this);
+        }
+        pScan->setAdvertisedDeviceCallbacks(s_pBleCallbacks);
+        pScan->setActiveScan(true);
+        pScan->setInterval(100);
+        pScan->setWindow(99);
+        pScan->clearResults();
+        pScan->start(0, nullptr, false);
+    }
+}
+
+void SceneSensorLab::stopBleScan() {
+    if (_isScanningBle) {
+        BLEScan* pScan = BLEDevice::getScan();
+        if (pScan) {
+            pScan->stop();
+            pScan->clearResults();
+        }
+        _isScanningBle = false;
+
+        // 依 RSSI 降冪排序 (最強設備置頂)
+        for (uint8_t i = 0; i < _foundBleDevs; i++) {
+            for (uint8_t j = i + 1; j < _foundBleDevs; j++) {
+                if (_bleDevs[j].rssi > _bleDevs[i].rssi) {
+                    BleScanResult tmp = _bleDevs[i];
+                    _bleDevs[i] = _bleDevs[j];
+                    _bleDevs[j] = tmp;
+                }
+            }
+        }
+    }
+}
+
+void SceneSensorLab::updateBleScanner(InputManager& input, AudioManager& audio) {
+    if (input.joyBtnPressed) {
+        audio.playClick();
+        startBleScan();
+        _needsRedraw = true;
+        return;
+    }
+
+    if (_isScanningBle) {
+        _needsRedraw = true;
+        if (millis() - _bleScanStartTime >= 3200) {
+            stopBleScan();
+            audio.playTick();
+            _needsRedraw = true;
+        }
+        return;
+    }
+
+    // 支援搖桿上下捲動檢視最多 15 筆 BLE 設備
+    if (_foundBleDevs > 4) {
+        int maxOffset = _foundBleDevs - 4;
+        static uint32_t lastScrollTick = 0;
+        uint32_t now = millis();
+
+        if (input.joyPulledDown || (input.joyY > 50 && now - lastScrollTick > 180)) {
+            if (_bleScrollOffset < maxOffset) {
+                _bleScrollOffset++;
+                audio.playTick();
+                _needsRedraw = true;
+                lastScrollTick = now;
+            }
+        } else if (input.joyPushedUp || (input.joyY < -50 && now - lastScrollTick > 180)) {
+            if (_bleScrollOffset > 0) {
+                _bleScrollOffset--;
+                audio.playTick();
+                _needsRedraw = true;
+                lastScrollTick = now;
+            }
+        }
+    }
+}
+
+void SceneSensorLab::drawBleScanner() {
+    int centerX = SCREEN_WIDTH / 2;
+
+    if (_isScanningBle) {
+        drawRadarAnimation("BLE SCANNER", "Scanning Bluetooth LE...", COLOR_CYAN);
+        return;
+    }
+
+    char titleBuf[32];
+    snprintf(titleBuf, sizeof(titleBuf), "BLE Devs: %d", _foundBleDevs);
+    g_canvas.setTextColor(COLOR_CYAN, TFT_BLACK);
+    g_canvas.drawString(titleBuf, 8, 28, 2);
+
+    if (_foundBleDevs > 0) {
+        char pageBuf[16];
+        snprintf(pageBuf, sizeof(pageBuf), "%d-%d", _bleScrollOffset + 1, min((int)_bleScrollOffset + 4, (int)_foundBleDevs));
+        g_canvas.setTextColor(COLOR_SILVER, TFT_BLACK);
+        g_canvas.drawRightString(pageBuf, SCREEN_WIDTH - 8, 30, 1);
+    }
+
+    if (_foundBleDevs == 0) {
+        g_canvas.setTextColor(TFT_DARKGREY, TFT_BLACK);
+        g_canvas.drawCentreString("No BLE Devices", centerX, 95, 2);
+        g_canvas.drawCentreString("Click Joy to Scan", centerX, 115, 1);
+    } else {
+        uint8_t visibleCount = min((uint8_t)4, (uint8_t)(_foundBleDevs - _bleScrollOffset));
+        for (uint8_t i = 0; i < visibleCount; i++) {
+            uint8_t idx = _bleScrollOffset + i;
+            int y = 46 + i * 38;
+
+            g_canvas.fillRoundRect(6, y, 116, 35, 3, 0x0841);
+            g_canvas.drawRoundRect(6, y, 116, 35, 3, 0x2104);
+
+            // 行 1：BLE 設備名稱
+            char shortName[16];
+            snprintf(shortName, sizeof(shortName), "%s", _bleDevs[idx].name);
+            g_canvas.setTextColor(TFT_WHITE, 0x0841);
+            g_canvas.drawString(shortName, 10, y + 4, 1);
+
+            // 右側 RSSI
+            char rssiStr[16];
+            snprintf(rssiStr, sizeof(rssiStr), "%ddB", (int)_bleDevs[idx].rssi);
+            uint16_t sigColor = (_bleDevs[idx].rssi > -65) ? TFT_GREEN :
+                                (_bleDevs[idx].rssi > -80) ? COLOR_GOLD : TFT_RED;
+            g_canvas.setTextColor(sigColor, 0x0841);
+            g_canvas.drawRightString(rssiStr, 118, y + 4, 1);
+
+            // 行 2：MAC 位址
+            g_canvas.setTextColor(COLOR_SILVER, 0x0841);
+            g_canvas.drawString(_bleDevs[idx].address, 10, y + 20, 1);
+
+            // 右下角 4 段階梯信標強度條
+            int bars = (_bleDevs[idx].rssi > -55) ? 4 :
+                       (_bleDevs[idx].rssi > -70) ? 3 :
+                       (_bleDevs[idx].rssi > -85) ? 2 : 1;
+            for (int b = 0; b < 4; b++) {
+                int barH = 2 + b * 2;
+                int bx = 104 + b * 4;
+                int by = y + 30 - barH;
+                uint16_t bc = (b < bars) ? sigColor : 0x2104;
+                g_canvas.fillRect(bx, by, 3, barH, bc);
+            }
+        }
+
+        // 右側捲軸指示條
+        if (_foundBleDevs > 4) {
+            int trackH = 146;
+            int thumbH = max(16, trackH * 4 / _foundBleDevs);
+            int thumbY = 46 + (_bleScrollOffset * (trackH - thumbH)) / (_foundBleDevs - 4);
+            g_canvas.drawFastVLine(128, 46, trackH, 0x18C3);
+            g_canvas.fillRect(127, thumbY, 3, thumbH, COLOR_CYAN);
+        }
+    }
+
+    g_canvas.setTextColor(TFT_YELLOW, TFT_BLACK);
+    g_canvas.drawCentreString("Joy Up/Dn:Scroll | Click:Scan", centerX, 201, 1);
+}
+
+// ----------------------------------------------------
+// LED Studio 邏輯與繪製
+// ----------------------------------------------------
 void SceneSensorLab::updateLedStudio(InputManager& input, LedManager& led) {
     if (abs(input.joyX) > 30) {
         _hue += (input.joyX / 15);
@@ -268,7 +674,6 @@ void SceneSensorLab::updateLedStudio(InputManager& input, LedManager& led) {
         _needsRedraw = true;
     }
     if (abs(input.joyY) > 30) {
-        // input.joyY < 0 (向上推) 時亮度增加，input.joyY > 0 (向下推) 時亮度減少
         int nextB = _brightness - (input.joyY / 20);
         _brightness = (uint8_t)constrain(nextB, 5, 100);
         _needsRedraw = true;
@@ -281,12 +686,10 @@ void SceneSensorLab::updateLedStudio(InputManager& input, LedManager& led) {
 void SceneSensorLab::drawLedStudio() {
     int centerX = SCREEN_WIDTH / 2;
 
-    // 1. 全幅調光預覽色塊 (Y: 35 ~ 115)
     uint16_t previewColor = g_canvas.color565(_ledR, _ledG, _ledB);
     g_canvas.fillRoundRect(15, 35, SCREEN_WIDTH - 30, 80, 6, previewColor);
     g_canvas.drawRoundRect(15, 35, SCREEN_WIDTH - 30, 80, 6, TFT_WHITE);
 
-    // 2. HEX 色碼與 RGB 數值 (Y: 125 ~ 170)
     char hexStr[16];
     snprintf(hexStr, sizeof(hexStr), "#%02X%02X%02X", _ledR, _ledG, _ledB);
     g_canvas.setTextColor(COLOR_GOLD, TFT_BLACK);
@@ -297,76 +700,95 @@ void SceneSensorLab::drawLedStudio() {
     g_canvas.setTextColor(COLOR_CYAN, TFT_BLACK);
     g_canvas.drawCentreString(rgbStr, centerX, 156, 1);
 
-    // 3. 底部操作提示 (Y: 180 ~ 205)
     g_canvas.setTextColor(TFT_YELLOW, TFT_BLACK);
     g_canvas.drawCentreString("Joy X: Hue (Color)", centerX, 180, 1);
     g_canvas.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
     g_canvas.drawCentreString("Joy Y: Brightness", centerX, 195, 1);
 }
 
+// ----------------------------------------------------
+// 主邏輯更新與分頁切換管理
+// ----------------------------------------------------
 void SceneSensorLab::update(InputManager& input, AudioManager& audio, LedManager& led) {
     // 1. Button B 長按：返回全域主選單
     if (input.btnBLongPressed) {
         audio.playClick();
-        WiFi.mode(WIFI_OFF);
+        stopWifiScan();
+        stopBleScan();
         led.setColor(0, 0, 0);
         _nextScene = SCENE_MENU;
         return;
     }
 
-    // 2. Button A 短按：循環切換分頁
+    // 2. Button A 短按：循環切換 5 個子分頁
     if (input.btnAPressed) {
+        SensorTab prevTab = _currentTab;
         _currentTab = (SensorTab)((_currentTab + 1) % TAB_COUNT);
         audio.playClick();
-        if (_currentTab != TAB_RF_SCANNER) {
-            WiFi.mode(WIFI_OFF); // 離開 RF 分頁關閉 Wi-Fi
-        } else {
-            startWifiScan();
+
+        // 切離 Wi-Fi 或 BLE 分頁時確保關閉射頻
+        if (prevTab == TAB_RF_SCANNER && _currentTab != TAB_RF_SCANNER) {
+            stopWifiScan();
         }
+        if (prevTab == TAB_BLE_SCANNER && _currentTab != TAB_BLE_SCANNER) {
+            stopBleScan();
+        }
+
+        // 切入時自動啟動掃描
+        if (_currentTab == TAB_RF_SCANNER) {
+            startWifiScan();
+        } else if (_currentTab == TAB_BLE_SCANNER) {
+            startBleScan();
+        }
+
         _needsRedraw = true;
         return;
     }
 
-    // 3. 各分頁邏輯更新
+    // 3. 子分頁更新邏輯
     switch (_currentTab) {
-        case TAB_LEVEL:      updateLevel(input, audio); break;
-        case TAB_G_TRACKER:  updateGTracker(input); break;
-        case TAB_RF_SCANNER: updateRfScanner(input, audio); break;
-        case TAB_LED_STUDIO: updateLedStudio(input, led); break;
+        case TAB_LEVEL:       updateLevel(input, audio); break;
+        case TAB_G_TRACKER:   updateGTracker(input); break;
+        case TAB_RF_SCANNER:  updateRfScanner(input, audio); break;
+        case TAB_BLE_SCANNER: updateBleScanner(input, audio); break;
+        case TAB_LED_STUDIO:  updateLedStudio(input, led); break;
         default: break;
     }
 }
 
+// ----------------------------------------------------
+// 主繪圖函式 (雙緩衝 g_canvas 零閃爍渲染)
+// ----------------------------------------------------
 void SceneSensorLab::draw() {
     if (!_needsRedraw) return;
     _needsRedraw = false;
 
-    // 方案 A：使用全域雙緩衝畫布離線渲染，徹底杜絕畫面撕裂與閃爍
     g_canvas.fillSprite(TFT_BLACK);
 
-    // 頂部分頁導覽列 (Y: 0 ~ 26)
-    const char* TAB_NAMES[] = {"LEVEL", "G-TRK", "RF", "LED"};
-    int tabW = SCREEN_WIDTH / TAB_COUNT; // 約 33px
+    // 頂部 5 分頁導覽列 (Y: 0 ~ 24, 寬度 135 / 5 = 27px)
+    const char* TAB_NAMES[] = {"LVL", "G-F", "WIFI", "BLE", "LED"};
+    int tabW = SCREEN_WIDTH / TAB_COUNT; // 27px
 
     for (uint8_t i = 0; i < TAB_COUNT; i++) {
         int tx = i * tabW;
         bool isSel = (i == _currentTab);
         if (isSel) {
-            g_canvas.fillRect(tx, 0, tabW, 24, COLOR_CYAN);
+            g_canvas.fillRect(tx, 0, tabW, 23, COLOR_CYAN);
             g_canvas.setTextColor(TFT_BLACK, COLOR_CYAN);
         } else {
-            g_canvas.fillRect(tx, 0, tabW, 24, 0x18C3);
+            g_canvas.fillRect(tx, 0, tabW, 23, 0x18C3);
             g_canvas.setTextColor(TFT_LIGHTGREY, 0x18C3);
         }
         g_canvas.drawCentreString(TAB_NAMES[i], tx + tabW / 2, 4, 1);
     }
 
-    // 繪製當前分頁內容至畫布
+    // 繪製對應子分頁
     switch (_currentTab) {
-        case TAB_LEVEL:      drawLevel(); break;
-        case TAB_G_TRACKER:  drawGTracker(); break;
-        case TAB_RF_SCANNER: drawRfScanner(); break;
-        case TAB_LED_STUDIO: drawLedStudio(); break;
+        case TAB_LEVEL:       drawLevel(); break;
+        case TAB_G_TRACKER:   drawGTracker(); break;
+        case TAB_RF_SCANNER:  drawRfScanner(); break;
+        case TAB_BLE_SCANNER: drawBleScanner(); break;
+        case TAB_LED_STUDIO:  drawLedStudio(); break;
         default: break;
     }
 
@@ -377,6 +799,6 @@ void SceneSensorLab::draw() {
     g_canvas.setTextColor(TFT_DARKGREY, TFT_BLACK);
     g_canvas.drawCentreString("Hold Btn B: Exit", SCREEN_WIDTH / 2, 228, 1);
 
-    // 一次性將記憶體畫面推送到螢幕
+    // 統一推送到 ST7789v2 螢幕
     g_canvas.pushSprite(0, 0);
 }
