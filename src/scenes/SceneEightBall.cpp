@@ -47,7 +47,6 @@ void SceneEightBall::init() {
     _isRevealed = false;
     _triggeredByBtn = false;
     _nextScene = SCENE_COUNT;
-    M5.Lcd.fillScreen(TFT_BLACK);
 }
 
 void SceneEightBall::startDivination(bool byBtn, AudioManager& audio, LedManager& led) {
@@ -114,57 +113,51 @@ void SceneEightBall::draw() {
     if (!_needsRedraw) return;
     _needsRedraw = false;
 
+    // 方案 A：使用全域雙緩衝畫布離線繪製，杜絕水波微動動畫與揭曉浮籤閃爍
+    g_canvas.fillSprite(TFT_BLACK);
+
     // 頂部狀態列：左側 8-BALL，右側 ORACLE
-    M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 26, 0x18C3);
-    M5.Lcd.setTextColor(COLOR_PURPLE, 0x18C3);
-    M5.Lcd.drawString("8-BALL", 8, 5, 2);
-    M5.Lcd.setTextColor(COLOR_GOLD, 0x18C3);
-    M5.Lcd.drawRightString("ORACLE", SCREEN_WIDTH - 8, 7, 1);
-
-    // 清空動態占卜區
-    M5.Lcd.fillRect(0, 26, SCREEN_WIDTH, 186, TFT_BLACK);
-
-    if (!_isRevealing && !_isRevealed) {
-        int cx = SCREEN_WIDTH / 2;
-        int cy = 105;
-        int radius = 44;
-
-        M5.Lcd.fillCircle(cx, cy, radius, 0x18C3);
-        M5.Lcd.drawCircle(cx, cy, radius, COLOR_PURPLE);
-        M5.Lcd.fillCircle(cx, cy, 18, TFT_WHITE);
-        M5.Lcd.setTextColor(TFT_BLACK, TFT_WHITE);
-        M5.Lcd.drawCentreString("8", cx, cy - 14, 4);
-
-        M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
-        M5.Lcd.drawCentreString("SHAKE TO ASK", cx, 165, 2);
-        return;
-    }
+    g_canvas.fillRect(0, 0, SCREEN_WIDTH, 26, 0x18C3);
+    g_canvas.setTextColor(COLOR_PURPLE, 0x18C3);
+    g_canvas.drawString("8-BALL", 8, 5, 2);
+    g_canvas.setTextColor(COLOR_GOLD, 0x18C3);
+    g_canvas.drawRightString("ORACLE", SCREEN_WIDTH - 8, 7, 1);
 
     int cx = SCREEN_WIDTH / 2;
     int cy = 105;
 
-    if (_isRevealing) {
+    if (!_isRevealing && !_isRevealed) {
+        int radius = 44;
+
+        g_canvas.fillCircle(cx, cy, radius, 0x18C3);
+        g_canvas.drawCircle(cx, cy, radius, COLOR_PURPLE);
+        g_canvas.fillCircle(cx, cy, 18, TFT_WHITE);
+        g_canvas.setTextColor(TFT_BLACK, TFT_WHITE);
+        g_canvas.drawCentreString("8", cx, cy - 14, 4);
+
+        g_canvas.setTextColor(COLOR_GOLD, TFT_BLACK);
+        g_canvas.drawCentreString("SHAKE TO ASK", cx, 165, 2);
+    } else if (_isRevealing) {
         // 占卜旋轉中：持續顯示八號球本身，伴隨水底氣泡與微波動效
         int radius = 44;
-        // 依照時間微幅晃動 1~2 像素增添水波真實感
         int wobbleX = ((millis() / 120) % 3) - 1;
         int wobbleY = ((millis() / 160) % 3) - 1;
         int ballX = cx + wobbleX;
         int ballY = cy + wobbleY;
 
-        M5.Lcd.fillCircle(ballX, ballY, radius, 0x18C3);
-        M5.Lcd.drawCircle(ballX, ballY, radius, COLOR_CYAN);
-        M5.Lcd.fillCircle(ballX, ballY, 18, TFT_WHITE);
-        M5.Lcd.setTextColor(TFT_BLACK, TFT_WHITE);
-        M5.Lcd.drawCentreString("8", ballX, ballY - 14, 4);
+        g_canvas.fillCircle(ballX, ballY, radius, 0x18C3);
+        g_canvas.drawCircle(ballX, ballY, radius, COLOR_CYAN);
+        g_canvas.fillCircle(ballX, ballY, 18, TFT_WHITE);
+        g_canvas.setTextColor(TFT_BLACK, TFT_WHITE);
+        g_canvas.drawCentreString("8", ballX, ballY - 14, 4);
 
         // 周圍隨機微氣泡
-        M5.Lcd.drawCircle(cx - 38, cy - 35, 3, COLOR_CYAN);
-        M5.Lcd.drawCircle(cx + 36, cy + 30, 2, COLOR_CYAN);
-        M5.Lcd.drawCircle(cx + 40, cy - 25, 4, COLOR_CYAN);
+        g_canvas.drawCircle(cx - 38, cy - 35, 3, COLOR_CYAN);
+        g_canvas.drawCircle(cx + 36, cy + 30, 2, COLOR_CYAN);
+        g_canvas.drawCircle(cx + 40, cy - 25, 4, COLOR_CYAN);
 
-        M5.Lcd.setTextColor(COLOR_CYAN, TFT_BLACK);
-        M5.Lcd.drawCentreString("THINKING...", cx, 165, 2);
+        g_canvas.setTextColor(COLOR_CYAN, TFT_BLACK);
+        g_canvas.drawCentreString("THINKING...", cx, 165, 2);
     } else {
         // 占卜結果：依正向、否定、模糊分別繪製專屬幾何幾何浮牌
         const ClassicFortune& cf = CLASSIC_FORTUNES[_fortuneIdx];
@@ -175,53 +168,52 @@ void SceneEightBall::draw() {
             int yTip = cy + 54;
             int xSpan = 58;
 
-            M5.Lcd.fillTriangle(cx - xSpan, yTop, cx + xSpan, yTop, cx, yTip, 0x09CD);
-            M5.Lcd.drawTriangle(cx - xSpan, yTop, cx + xSpan, yTop, cx, yTip, COLOR_LIGHT_BLUE);
+            g_canvas.fillTriangle(cx - xSpan, yTop, cx + xSpan, yTop, cx, yTip, 0x09CD);
+            g_canvas.drawTriangle(cx - xSpan, yTop, cx + xSpan, yTop, cx, yTip, COLOR_LIGHT_BLUE);
 
-            // 文字居中於上部較寬區域
-            M5.Lcd.setTextColor(COLOR_CYAN, 0x09CD);
-            M5.Lcd.drawCentreString(cf.line1, cx, cy - 30, 2);
-            M5.Lcd.setTextColor(TFT_WHITE, 0x09CD);
-            M5.Lcd.drawCentreString(cf.line2, cx, cy - 10, 2);
+            g_canvas.setTextColor(COLOR_CYAN, 0x09CD);
+            g_canvas.drawCentreString(cf.line1, cx, cy - 30, 2);
+            g_canvas.setTextColor(TFT_WHITE, 0x09CD);
+            g_canvas.drawCentreString(cf.line2, cx, cy - 10, 2);
         } else if (cf.category == 2) {
             // 2. 否定懷疑：淡紅色正三角形 (Upright Triangle ▲，尖端朝上)
             int yTip = cy - 54;
             int yBase = cy + 48;
             int xSpan = 58;
 
-            M5.Lcd.fillTriangle(cx, yTip, cx - xSpan, yBase, cx + xSpan, yBase, 0x3842);
-            M5.Lcd.drawTriangle(cx, yTip, cx - xSpan, yBase, cx + xSpan, yBase, COLOR_LIGHT_RED);
+            g_canvas.fillTriangle(cx, yTip, cx - xSpan, yBase, cx + xSpan, yBase, 0x3842);
+            g_canvas.drawTriangle(cx, yTip, cx - xSpan, yBase, cx + xSpan, yBase, COLOR_LIGHT_RED);
 
-            // 文字居中於下部較寬區域
-            M5.Lcd.setTextColor(COLOR_LIGHT_RED, 0x3842);
-            M5.Lcd.drawCentreString(cf.line1, cx, cy + 4, 2);
-            M5.Lcd.setTextColor(TFT_WHITE, 0x3842);
-            M5.Lcd.drawCentreString(cf.line2, cx, cy + 24, 2);
+            g_canvas.setTextColor(COLOR_LIGHT_RED, 0x3842);
+            g_canvas.drawCentreString(cf.line1, cx, cy + 4, 2);
+            g_canvas.setTextColor(TFT_WHITE, 0x3842);
+            g_canvas.drawCentreString(cf.line2, cx, cy + 24, 2);
         } else {
             // 3. 模糊中立：淡紫色菱形水晶 (Diamond ◆，神秘未知感)
             int yUp = cy - 52;
             int yDown = cy + 52;
             int xSpan = 56;
 
-            // 上三角 + 下三角拼合為菱形
-            M5.Lcd.fillTriangle(cx, yUp, cx - xSpan, cy, cx + xSpan, cy, 0x2128);
-            M5.Lcd.fillTriangle(cx, yDown, cx - xSpan, cy, cx + xSpan, cy, 0x2128);
-            M5.Lcd.drawLine(cx, yUp, cx - xSpan, cy, COLOR_PURPLE);
-            M5.Lcd.drawLine(cx, yUp, cx + xSpan, cy, COLOR_PURPLE);
-            M5.Lcd.drawLine(cx, yDown, cx - xSpan, cy, COLOR_PURPLE);
-            M5.Lcd.drawLine(cx, yDown, cx + xSpan, cy, COLOR_PURPLE);
+            g_canvas.fillTriangle(cx, yUp, cx - xSpan, cy, cx + xSpan, cy, 0x2128);
+            g_canvas.fillTriangle(cx, yDown, cx - xSpan, cy, cx + xSpan, cy, 0x2128);
+            g_canvas.drawLine(cx, yUp, cx - xSpan, cy, COLOR_PURPLE);
+            g_canvas.drawLine(cx, yUp, cx + xSpan, cy, COLOR_PURPLE);
+            g_canvas.drawLine(cx, yDown, cx - xSpan, cy, COLOR_PURPLE);
+            g_canvas.drawLine(cx, yDown, cx + xSpan, cy, COLOR_PURPLE);
 
-            // 文字居中於菱形中央最寬區域
-            M5.Lcd.setTextColor(0xDCBE, 0x2128);
-            M5.Lcd.drawCentreString(cf.line1, cx, cy - 14, 2);
-            M5.Lcd.setTextColor(TFT_WHITE, 0x2128);
-            M5.Lcd.drawCentreString(cf.line2, cx, cy + 6, 2);
+            g_canvas.setTextColor(0xDCBE, 0x2128);
+            g_canvas.drawCentreString(cf.line1, cx, cy - 14, 2);
+            g_canvas.setTextColor(TFT_WHITE, 0x2128);
+            g_canvas.drawCentreString(cf.line2, cx, cy + 6, 2);
         }
     }
 
     // 底部指引
-    M5.Lcd.drawFastHLine(8, 212, SCREEN_WIDTH - 16, 0x39E7);
-    M5.Lcd.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-    M5.Lcd.drawCentreString("[SHAKE TO RE-ASK]", SCREEN_WIDTH / 2, 220, 1);
+    g_canvas.drawFastHLine(8, 212, SCREEN_WIDTH - 16, 0x39E7);
+    g_canvas.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+    g_canvas.drawCentreString("[SHAKE TO RE-ASK]", SCREEN_WIDTH / 2, 220, 1);
+
+    // 一次性推送畫面至 ST7789v2 螢幕
+    g_canvas.pushSprite(0, 0);
 }
 

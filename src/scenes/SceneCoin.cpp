@@ -20,7 +20,6 @@ void SceneCoin::init() {
     _triggeredByJoy = false;
     _animPhase = 0;
     _nextScene = SCENE_COUNT;
-    M5.Lcd.fillScreen(TFT_BLACK);
 }
 
 void SceneCoin::tossCoins(bool byJoy, AudioManager& audio, LedManager& led) {
@@ -124,78 +123,78 @@ void SceneCoin::drawCoin(int cx, int cy, int r, uint8_t side, uint8_t phase) {
 
         if (rx <= 3) {
             // 側面硬幣厚度 (Edge view)
-            M5.Lcd.fillRoundRect(cx - 2, cy - r, 4, r * 2, 2, COLOR_SILVER);
-            M5.Lcd.drawRoundRect(cx - 2, cy - r, 4, r * 2, 2, COLOR_GOLD);
+            g_canvas.fillRoundRect(cx - 2, cy - r, 4, r * 2, 2, COLOR_SILVER);
+            g_canvas.drawRoundRect(cx - 2, cy - r, 4, r * 2, 2, COLOR_GOLD);
         } else {
             // 正反翻轉橢圓
             uint16_t bodyColor = (phase < 3) ? COLOR_GOLD : COLOR_SILVER;
-            M5.Lcd.fillEllipse(cx, cy, rx, r, bodyColor);
-            M5.Lcd.drawEllipse(cx, cy, rx, r, TFT_WHITE);
+            g_canvas.fillEllipse(cx, cy, rx, r, bodyColor);
+            g_canvas.drawEllipse(cx, cy, rx, r, TFT_WHITE);
             // 亮面反光線
-            M5.Lcd.drawFastVLine(cx - rx / 3, cy - r / 2, r, TFT_WHITE);
+            g_canvas.drawFastVLine(cx - rx / 3, cy - r / 2, r, TFT_WHITE);
         }
     } else {
         // 落地靜止面
         // 外圈雙重立體金銀邊框
-        M5.Lcd.fillCircle(cx, cy, r, COLOR_GOLD);
-        M5.Lcd.drawCircle(cx, cy, r, 0xD4A0);
-        M5.Lcd.drawCircle(cx, cy, r - 1, 0x8280);
-        M5.Lcd.drawCircle(cx, cy, r - 3, 0xD4A0);
+        g_canvas.fillCircle(cx, cy, r, COLOR_GOLD);
+        g_canvas.drawCircle(cx, cy, r, 0xD4A0);
+        g_canvas.drawCircle(cx, cy, r - 1, 0x8280);
+        g_canvas.drawCircle(cx, cy, r - 3, 0xD4A0);
 
         if (side == 0) {
             // 【正面：人頭剪影浮雕 (HEADS)】
             // 內圈底色
-            M5.Lcd.fillCircle(cx, cy, r - 4, 0xCE59); // 淺金浮雕底
+            g_canvas.fillCircle(cx, cy, r - 4, 0xCE59); // 淺金浮雕底
 
             // 依據半徑大小繪製人頭剪影
             if (r >= 30) {
                 // 特大硬幣 (1 枚)
                 int headR = 11;
                 int headCy = cy - 7;
-                M5.Lcd.fillCircle(cx, headCy, headR, TFT_WHITE);
+                g_canvas.fillCircle(cx, headCy, headR, TFT_WHITE);
                 // 額頭鼻尖
-                M5.Lcd.fillTriangle(cx + 4, headCy - 7, cx + 15, headCy - 2, cx + 4, headCy + 2, TFT_WHITE);
+                g_canvas.fillTriangle(cx + 4, headCy - 7, cx + 15, headCy - 2, cx + 4, headCy + 2, TFT_WHITE);
                 // 頸肩浮雕
-                M5.Lcd.fillTriangle(cx - 18, cy + 20, cx + 18, cy + 20, cx, cy - 1, TFT_WHITE);
+                g_canvas.fillTriangle(cx - 18, cy + 20, cx + 18, cy + 20, cx, cy - 1, TFT_WHITE);
                 // 正面英文標註
-                M5.Lcd.setTextColor(0x4208, 0xCE59);
-                M5.Lcd.drawCentreString("HEAD", cx, cy + 19, 1);
+                g_canvas.setTextColor(0x4208, 0xCE59);
+                g_canvas.drawCentreString("HEAD", cx, cy + 19, 1);
             } else if (r >= 22) {
                 // 中型硬幣 (2~3 枚)
                 int headR = 7;
                 int headCy = cy - 5;
-                M5.Lcd.fillCircle(cx, headCy, headR, TFT_WHITE);
-                M5.Lcd.fillTriangle(cx + 2, headCy - 4, cx + 9, headCy - 1, cx + 2, headCy + 2, TFT_WHITE);
-                M5.Lcd.fillTriangle(cx - 12, cy + 14, cx + 12, cy + 14, cx, cy - 1, TFT_WHITE);
-                M5.Lcd.setTextColor(0x4208, 0xCE59);
-                M5.Lcd.drawCentreString("H", cx, cy + 9, 1);
+                g_canvas.fillCircle(cx, headCy, headR, TFT_WHITE);
+                g_canvas.fillTriangle(cx + 2, headCy - 4, cx + 9, headCy - 1, cx + 2, headCy + 2, TFT_WHITE);
+                g_canvas.fillTriangle(cx - 12, cy + 14, cx + 12, cy + 14, cx, cy - 1, TFT_WHITE);
+                g_canvas.setTextColor(0x4208, 0xCE59);
+                g_canvas.drawCentreString("H", cx, cy + 9, 1);
             } else {
                 // 小型硬幣 (4~5 枚)
-                M5.Lcd.fillCircle(cx, cy - 3, 5, TFT_WHITE);
-                M5.Lcd.fillTriangle(cx - 9, cy + 10, cx + 9, cy + 10, cx, cy, TFT_WHITE);
-                M5.Lcd.setTextColor(0x4208, 0xCE59);
-                M5.Lcd.drawCentreString("H", cx, cy + 4, 1);
+                g_canvas.fillCircle(cx, cy - 3, 5, TFT_WHITE);
+                g_canvas.fillTriangle(cx - 9, cy + 10, cx + 9, cy + 10, cx, cy, TFT_WHITE);
+                g_canvas.setTextColor(0x4208, 0xCE59);
+                g_canvas.drawCentreString("H", cx, cy + 4, 1);
             }
         } else {
             // 【反面：台灣 10 元字樣 (TAILS)】
-            M5.Lcd.fillCircle(cx, cy, r - 4, 0xAD40); // 典雅金底
+            g_canvas.fillCircle(cx, cy, r - 4, 0xAD40); // 典雅金底
 
             if (r >= 30) {
                 // 特大硬幣：粗大「10」數字與「YUAN」
-                M5.Lcd.setTextColor(TFT_WHITE, 0xAD40);
-                M5.Lcd.drawCentreString("10", cx, cy - 14, 4);
-                M5.Lcd.setTextColor(COLOR_GOLD, 0xAD40);
-                M5.Lcd.drawCentreString("YUAN", cx, cy + 13, 2);
+                g_canvas.setTextColor(TFT_WHITE, 0xAD40);
+                g_canvas.drawCentreString("10", cx, cy - 14, 4);
+                g_canvas.setTextColor(COLOR_GOLD, 0xAD40);
+                g_canvas.drawCentreString("YUAN", cx, cy + 13, 2);
             } else if (r >= 22) {
                 // 中型硬幣
-                M5.Lcd.setTextColor(TFT_WHITE, 0xAD40);
-                M5.Lcd.drawCentreString("10", cx, cy - 9, 2);
-                M5.Lcd.setTextColor(COLOR_GOLD, 0xAD40);
-                M5.Lcd.drawCentreString("TAIL", cx, cy + 7, 1);
+                g_canvas.setTextColor(TFT_WHITE, 0xAD40);
+                g_canvas.drawCentreString("10", cx, cy - 9, 2);
+                g_canvas.setTextColor(COLOR_GOLD, 0xAD40);
+                g_canvas.drawCentreString("TAIL", cx, cy + 7, 1);
             } else {
                 // 小型硬幣
-                M5.Lcd.setTextColor(TFT_WHITE, 0xAD40);
-                M5.Lcd.drawCentreString("10", cx, cy - 7, 2);
+                g_canvas.setTextColor(TFT_WHITE, 0xAD40);
+                g_canvas.drawCentreString("10", cx, cy - 7, 2);
             }
         }
     }
@@ -205,18 +204,21 @@ void SceneCoin::draw() {
     if (!_needsRedraw) return;
     _needsRedraw = false;
 
+    // 方案 A：使用全域雙緩衝畫布離線繪製，杜絕翻幣動畫閃爍
+    g_canvas.fillSprite(TFT_BLACK);
+
     // 頂部狀態列
-    M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 26, 0x18C3);
-    M5.Lcd.setTextColor(COLOR_GOLD, 0x18C3);
-    M5.Lcd.drawString("COIN TOSS", 8, 5, 2);
+    g_canvas.fillRect(0, 0, SCREEN_WIDTH, 26, 0x18C3);
+    g_canvas.setTextColor(COLOR_GOLD, 0x18C3);
+    g_canvas.drawString("COIN TOSS", 8, 5, 2);
 
     char countStr[8];
     snprintf(countStr, sizeof(countStr), "x%d", _coinCount);
-    M5.Lcd.setTextColor(COLOR_CYAN, 0x18C3);
-    M5.Lcd.drawRightString(countStr, SCREEN_WIDTH - 8, 7, 1);
+    g_canvas.setTextColor(COLOR_CYAN, 0x18C3);
+    g_canvas.drawRightString(countStr, SCREEN_WIDTH - 8, 7, 1);
 
     // 清空硬幣主活動區
-    M5.Lcd.fillRect(0, 26, SCREEN_WIDTH, 172, TFT_BLACK);
+    g_canvas.fillRect(0, 26, SCREEN_WIDTH, 172, TFT_BLACK);
 
     // 依據硬幣數量計算中心位置與半徑
     if (_coinCount == 1) {
@@ -247,8 +249,8 @@ void SceneCoin::draw() {
     }
 
     // 底部結算與指引區
-    M5.Lcd.fillRect(0, 198, SCREEN_WIDTH, 42, TFT_BLACK);
-    M5.Lcd.drawFastHLine(8, 200, SCREEN_WIDTH - 16, 0x39E7);
+    g_canvas.fillRect(0, 198, SCREEN_WIDTH, 42, TFT_BLACK);
+    g_canvas.drawFastHLine(8, 200, SCREEN_WIDTH - 16, 0x39E7);
 
     if (!_isFlipping) {
         if (_coinCount > 1) {
@@ -260,22 +262,25 @@ void SceneCoin::draw() {
             }
             char sumStr[32];
             snprintf(sumStr, sizeof(sumStr), "%dH %dT", heads, tails);
-            M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
-            M5.Lcd.drawCentreString(sumStr, SCREEN_WIDTH / 2, 205, 2);
+            g_canvas.setTextColor(COLOR_GOLD, TFT_BLACK);
+            g_canvas.drawCentreString(sumStr, SCREEN_WIDTH / 2, 205, 2);
 
-            M5.Lcd.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-            M5.Lcd.drawCentreString("[PULL / SHAKE]", SCREEN_WIDTH / 2, 224, 1);
+            g_canvas.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+            g_canvas.drawCentreString("[PULL / SHAKE]", SCREEN_WIDTH / 2, 224, 1);
         } else {
             // 單枚硬幣結果大字顯示
             const char* resStr = (_coinResults[0] == 0) ? "HEAD (OBVERSE)" : "10 YUAN (REVERSE)";
-            M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
-            M5.Lcd.drawCentreString(resStr, SCREEN_WIDTH / 2, 205, 1);
+            g_canvas.setTextColor(COLOR_GOLD, TFT_BLACK);
+            g_canvas.drawCentreString(resStr, SCREEN_WIDTH / 2, 205, 1);
 
-            M5.Lcd.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-            M5.Lcd.drawCentreString("[PULL / SHAKE]", SCREEN_WIDTH / 2, 222, 1);
+            g_canvas.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+            g_canvas.drawCentreString("[PULL / SHAKE]", SCREEN_WIDTH / 2, 222, 1);
         }
     } else {
-        M5.Lcd.setTextColor(COLOR_CYAN, TFT_BLACK);
-        M5.Lcd.drawCentreString("FLIPPING...", SCREEN_WIDTH / 2, 212, 2);
+        g_canvas.setTextColor(COLOR_CYAN, TFT_BLACK);
+        g_canvas.drawCentreString("FLIPPING...", SCREEN_WIDTH / 2, 212, 2);
     }
+
+    // 一次性推送畫面至 ST7789v2 螢幕
+    g_canvas.pushSprite(0, 0);
 }
