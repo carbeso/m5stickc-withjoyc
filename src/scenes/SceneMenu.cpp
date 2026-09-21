@@ -21,7 +21,8 @@ const MenuItem MENU_ITEMS[] = {
     {"SLOT 3x3", "PULL JOY DOWN", TFT_GREEN, SCENE_SLOT},
     {"COIN TOSS", "1-5 COINS", COLOR_GOLD, SCENE_COIN},
     {"ROCK PAPER SCIS", "1-2 HANDS DUEL", 0xFBE0, SCENE_RPS},
-    {"1A2B PUZZLE", "GUESS 4 DIGITS", COLOR_LIGHT_BLUE, SCENE_1A2B}
+    {"1A2B PUZZLE", "GUESS 4 DIGITS", COLOR_LIGHT_BLUE, SCENE_1A2B},
+    {"STANDBY CLOCK", "RAIN & RTC TIME", 0x4A69, SCENE_STANDBY}
 };
 const uint8_t MENU_COUNT = sizeof(MENU_ITEMS) / sizeof(MENU_ITEMS[0]);
 const uint8_t VISIBLE_CARDS = 3; // 一頁顯示 3 張寬敞大卡片，告別文字擠壓
@@ -166,6 +167,12 @@ void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led
         }
     }
 
+    // 7. 全域無操作閒置 60 秒：自動進入待機休眠
+    if (now - input.lastActivityTime > 60000) {
+        _nextScene = SCENE_STANDBY;
+        return;
+    }
+
     // 設定 LED 燈色配合當前選中遊戲
     led.setHexColor(
         (_selectedIdx == 0) ? 0xFFAA00 :
@@ -175,7 +182,8 @@ void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led
         (_selectedIdx == 4) ? 0x00FF33 :
         (_selectedIdx == 5) ? 0xFFCC00 :
         (_selectedIdx == 6) ? 0xFF8800 :
-                              0x00AAFF
+        (_selectedIdx == 7) ? 0x00AAFF :
+                              0x00FF88
     );
 }
 

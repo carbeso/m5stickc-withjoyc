@@ -19,6 +19,7 @@
 #include "scenes/SceneCoin.h"
 #include "scenes/SceneRPS.h"
 #include "scenes/Scene1A2B.h"
+#include "scenes/SceneStandby.h"
 
 InputManager input;
 AudioManager audio;
@@ -33,6 +34,7 @@ SceneSlot sceneSlot;
 SceneCoin sceneCoin;
 SceneRPS sceneRPS;
 Scene1A2B scene1A2B;
+SceneStandby sceneStandby;
 
 Scene* currentScene = &sceneMenu;
 
@@ -47,6 +49,7 @@ void switchScene(GameScene target) {
         case SCENE_COIN:        currentScene = &sceneCoin; break;
         case SCENE_RPS:         currentScene = &sceneRPS; break;
         case SCENE_1A2B:        currentScene = &scene1A2B; break;
+        case SCENE_STANDBY:     currentScene = &sceneStandby; break;
         default:                currentScene = &sceneMenu; break;
     }
     currentScene->clearNextScene();
