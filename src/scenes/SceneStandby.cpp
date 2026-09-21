@@ -145,8 +145,8 @@ void SceneStandby::drawMatrix() {
                 else color = c4;
 
                 char ch = _cols[i].chars[step % 20];
-                M5.Lcd.drawChar(ch, x, y, 1);
                 M5.Lcd.setTextColor(color, TFT_BLACK);
+                M5.Lcd.drawChar(ch, x, y, 1);
             }
         }
     }
