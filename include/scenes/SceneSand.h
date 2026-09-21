@@ -28,7 +28,7 @@ public:
 private:
     void resetSand();
     void spawnSand(int16_t gridX, int16_t gridY, uint8_t count = 3);
-    void updatePhysics(float ax, float ay, bool isShaking, AudioManager& audio);
+    void updatePhysics(AudioManager& audio);
 
     static const uint8_t GRID_W = 45; // 135 / 3
     static const uint8_t GRID_H = 64; // 192 / 3
@@ -38,9 +38,13 @@ private:
     uint16_t _sandCount;              // 當前場上沙粒總數
     SandTheme _theme;
 
-    uint8_t  _shakeBurstFrames;       // 搖晃噴灑激盪動態剩餘幀數
+    float    _lastAx;                 // 前幀三軸加速度記錄 (用於精準計算即時 Jerk 衝量)
+    float    _lastAy;
+    float    _lastAz;
+
     uint32_t _lastPhysicsTime;
     uint32_t _lastSpawnTime;
     bool _needsRedraw;
 };
+
 

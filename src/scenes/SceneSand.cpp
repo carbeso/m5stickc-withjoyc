@@ -7,7 +7,8 @@
 #include <cmath>
 
 SceneSand::SceneSand()
-    : _sandCount(0), _theme(THEME_DESERT_GOLD), _shakeBurstFrames(0),
+    : _sandCount(0), _theme(THEME_DESERT_GOLD),
+      _lastAx(0.0f), _lastAy(1.0f), _lastAz(0.0f),
       _lastPhysicsTime(0), _lastSpawnTime(0), _needsRedraw(true) {
     for (uint8_t x = 0; x < GRID_W; x++) {
         for (uint8_t y = 0; y < GRID_H; y++) {
@@ -23,7 +24,6 @@ void SceneSand::resetSand() {
         }
     }
     _sandCount = 0;
-    _shakeBurstFrames = 0;
 
     // 開局在中央上方預設生成 220 顆初始沙粒
     for (int i = 0; i < 220; i++) {
@@ -41,7 +41,9 @@ void SceneSand::init() {
     _nextScene = SCENE_COUNT;
     _lastPhysicsTime = millis();
     _lastSpawnTime = millis();
-    _shakeBurstFrames = 0;
+    _lastAx = 0.0f;
+    _lastAy = 1.0f;
+    _lastAz = 0.0f;
     _needsRedraw = true;
 
     resetSand();
@@ -60,46 +62,66 @@ void SceneSand::spawnSand(int16_t gridX, int16_t gridY, uint8_t count) {
     }
 }
 
-void SceneSand::updatePhysics(float ax, float ay, bool isShaking, AudioManager& audio) {
-    // 1. 搖晃觸發噴灑噴泉動效 (Dynamic Shake Eruption)
-    if (isShaking) {
-        if (_shakeBurstFrames == 0) {
+void SceneSand::updatePhysics(AudioManager& audio) {
+    // 讀取即時三軸加速度與角速度數據
+    float ax = 0, ay = 0, az = 0;
+    M5.Imu.getAccelData(&ax, &ay, &az);
+    float gxDeg = 0, gyDeg = 0, gzDeg = 0;
+    M5.Imu.getGyroData(&gxDeg, &gyDeg, &gzDeg);
+
+    // 1. 即時計算體感甩動力道 (Shake Force)
+    float deltaA = fabsf(ax - _lastAx) + fabsf(ay - _lastAy) + fabsf(az - _lastAz);
+    _lastAx = ax;
+    _lastAy = ay;
+    _lastAz = az;
+
+    float totalAcc = sqrtf(ax * ax + ay * ay + az * az);
+    float gyroSum  = fabsf(gxDeg) + fabsf(gyDeg) + fabsf(gzDeg);
+
+    // 甩動力道綜合指標：加速度急動 (Jerk) + 偏離重力加速度大小 + 角速度
+    float shakeForce = (deltaA * 1.5f) + (fabsf(totalAcc - 1.0f) * 1.2f) + (gyroSum / 180.0f);
+
+    // 2. 依照力道即時噴濺飛散 (搖晃停止即刻停止，無任何拖泥延遲)
+    if (shakeForce >= 1.8f) {
+        bool isViolent = (shakeForce >= 3.2f);
+        if (isViolent) {
             audio.playClick();
         }
-        _shakeBurstFrames = 18; // 賦予 18 幀連續噴灑動量
-    }
 
-    // 噴灑爆發期：將沙堆表面與內部沙粒向上連續揚起飛散，形成真實泉湧拋灑視覺
-    if (_shakeBurstFrames > 0) {
-        _shakeBurstFrames--;
-        uint8_t burstCount = 0;
-        // 隨機在沙盤中抽樣揚起沙粒
-        for (int tries = 0; tries < 80 && burstCount < 25; tries++) {
+        uint8_t scatterTarget = isViolent ? 140 : 45; // 甩動大時狂暴飛散，中度時輕噴
+        int maxSpreadX = isViolent ? 18 : 6;
+        int maxSpreadY = isViolent ? 22 : 8;
+
+        uint8_t scattered = 0;
+        for (int tries = 0; tries < 200 && scattered < scatterTarget; tries++) {
             int rx = EntropyManager::random(0, GRID_W);
-            int ry = EntropyManager::random(10, GRID_H);
+            int ry = EntropyManager::random(0, GRID_H);
             if (_grid[rx][ry] != 0) {
-                int liftY = ry - EntropyManager::random(1, 4);      // 連續向上飛升 1~3 格
-                int scatterX = rx + EntropyManager::random(-2, 3);   // 左右隨機散射
-                if (liftY >= 0 && scatterX >= 0 && scatterX < GRID_W && _grid[scatterX][liftY] == 0) {
-                    _grid[scatterX][liftY] = _grid[rx][ry];
+                int dx = EntropyManager::random(-maxSpreadX, maxSpreadX + 1);
+                int dy = EntropyManager::random(-maxSpreadY, isViolent ? (maxSpreadY / 2) : 2);
+                int tx = rx + dx;
+                int ty = ry + dy;
+
+                if (tx >= 0 && tx < GRID_W && ty >= 0 && ty < GRID_H && _grid[tx][ty] == 0) {
+                    _grid[tx][ty] = _grid[rx][ry];
                     _grid[rx][ry] = 0;
-                    burstCount++;
+                    scattered++;
                 }
             }
         }
     }
 
-    // 2. 確定連續重力向量 (M5StickC 直向：ax > 0 為左傾，gx = -ax 為向左流；ay > 0 為立起向下流)
+    // 3. 確定連續重力向量 (直向 LCD：ax > 0 左傾則 gx = -ax 向左流；ay > 0 正立向下流)
     float gx = -ax;
     float gy = ay;
     float gMag = sqrtf(gx * gx + gy * gy);
 
-    // 3. 水平靜止死區判定：當機身平放水平放置於桌上且無噴灑時，沙粒完全靜止
-    if (gMag < 0.20f && _shakeBurstFrames == 0) {
+    // 4. 水平靜止死區判定：當機身平放水平放置於桌上且無甩動時，沙粒完全靜止
+    if (gMag < 0.20f && shakeForce < 1.8f) {
         return;
     }
 
-    // 4. 計算單位重力方向向量與軸向權重
+    // 5. 計算單位重力方向向量與軸向權重
     float ux = (gMag > 0.001f) ? (gx / gMag) : 0.0f;
     float uy = (gMag > 0.001f) ? (gy / gMag) : 1.0f;
 
@@ -108,7 +130,7 @@ void SceneSand::updatePhysics(float ax, float ay, bool isShaking, AudioManager& 
     int8_t signX = (ux >= 0.0f) ? 1 : -1;
     int8_t signY = (uy >= 0.0f) ? 1 : -1;
 
-    // 5. 依據重力方向自適應反向掃描 (Reverse Scan Order)，確保單幀單步推進，杜絕穿透瞬移
+    // 6. 重力方向自適應反向掃描 (Reverse Scan Order)，單幀單步推進，杜絕穿透
     int startY = (gy >= 0.0f) ? (GRID_H - 1) : 0;
     int endY   = (gy >= 0.0f) ? -1 : GRID_H;
     int stepY  = (gy >= 0.0f) ? -1 : 1;
@@ -122,11 +144,17 @@ void SceneSand::updatePhysics(float ax, float ay, bool isShaking, AudioManager& 
             uint8_t grain = _grid[x][y];
             if (grain == 0) continue;
 
-            // 6. 360 度連續重力自然運動邏輯 (Vector-driven Sand Simulation)
+            // 顆粒表面暴露判定 (Surface Granular Flow)：深層沙粒受重力擠壓鎖定，僅表層容易滾動
+            int aboveY = y - signY;
+            bool isSurface = (aboveY < 0 || aboveY >= GRID_H || _grid[x][aboveY] == 0 ||
+                              (x + signX >= 0 && x + signX < GRID_W && _grid[x + signX][aboveY] == 0) ||
+                              (x - signX >= 0 && x - signX < GRID_W && _grid[x - signX][aboveY] == 0));
+
+            // 7. 360 度連續重力與離散顆粒自然滑動演算法
             if (absY >= absX) {
                 // A. 垂直分量佔優 (正立、倒立或斜向)
-                // 若傾斜角顯著，機率性直接沿對角線滑落（解決向上或向下時左右沒反應問題）
-                if (absX > 0.20f && (EntropyManager::random(0, 100) < (int)(absX * 80))) {
+                // 若傾斜角顯著，機率性沿對角線滑落 (打破整齊下落死角)
+                if (absX > 0.18f && (EntropyManager::random(0, 100) < (int)(absX * 75))) {
                     int diagX = x + signX;
                     int diagY = y + signY;
                     if (diagX >= 0 && diagX < GRID_W && diagY >= 0 && diagY < GRID_H && _grid[diagX][diagY] == 0) {
@@ -136,16 +164,26 @@ void SceneSand::updatePhysics(float ax, float ay, bool isShaking, AudioManager& 
                     }
                 }
 
-                // 優先直落
+                // 優先直落（加入 15% 隨機微小側偏，打破下落時整排死直線現象）
                 int straightY = y + signY;
-                if (straightY >= 0 && straightY < GRID_H && _grid[x][straightY] == 0) {
-                    _grid[x][straightY] = grain;
-                    _grid[x][y] = 0;
-                    continue;
+                if (straightY >= 0 && straightY < GRID_H) {
+                    if (EntropyManager::random(0, 100) < 18) {
+                        int jitterX = x + (EntropyManager::random(0, 2) == 0 ? 1 : -1);
+                        if (jitterX >= 0 && jitterX < GRID_W && _grid[jitterX][straightY] == 0) {
+                            _grid[jitterX][straightY] = grain;
+                            _grid[x][y] = 0;
+                            continue;
+                        }
+                    }
+                    if (_grid[x][straightY] == 0) {
+                        _grid[x][straightY] = grain;
+                        _grid[x][y] = 0;
+                        continue;
+                    }
                 }
 
-                // 直落受阻，嘗試斜向下落 (優先向重力方向側滑，次選反向側滑形成安息角)
-                bool preferGravitySide = (absX > 0.15f) ? true : (EntropyManager::random(0, 2) == 0);
+                // 直落受阻，嘗試斜向側滑 (偏向側優先，反向側次選形成自然 45 度安息角)
+                bool preferGravitySide = (absX > 0.12f) ? true : (EntropyManager::random(0, 2) == 0);
                 int8_t s1 = preferGravitySide ? signX : -signX;
                 int8_t s2 = -s1;
 
@@ -163,8 +201,8 @@ void SceneSand::updatePhysics(float ax, float ay, bool isShaking, AudioManager& 
                     continue;
                 }
 
-                // 若下方完全堵塞且側向重力強烈，允許純水平滾動
-                if (absX > 0.35f) {
+                // 底部或深層水平滾動：僅限表層沙粒且加入隨機流動率 (70%)，徹底打破整排死直線
+                if (isSurface && absX > 0.30f && (EntropyManager::random(0, 100) < 70)) {
                     int horizX = x + signX;
                     if (horizX >= 0 && horizX < GRID_W && _grid[horizX][y] == 0) {
                         _grid[horizX][y] = grain;
@@ -172,9 +210,9 @@ void SceneSand::updatePhysics(float ax, float ay, bool isShaking, AudioManager& 
                     }
                 }
             } else {
-                // B. 水平分量佔優 (側立橫置或近水平橫擺)
+                // B. 水平分量佔優 (側置橫擺)
                 // 若垂直分量顯著，機率性直接沿對角線滑落
-                if (absY > 0.20f && (EntropyManager::random(0, 100) < (int)(absY * 80))) {
+                if (absY > 0.18f && (EntropyManager::random(0, 100) < (int)(absY * 75))) {
                     int diagX = x + signX;
                     int diagY = y + signY;
                     if (diagX >= 0 && diagX < GRID_W && diagY >= 0 && diagY < GRID_H && _grid[diagX][diagY] == 0) {
@@ -184,16 +222,18 @@ void SceneSand::updatePhysics(float ax, float ay, bool isShaking, AudioManager& 
                     }
                 }
 
-                // 優先橫移
+                // 優先橫移 (僅限表層或具流動自由度沙粒，加入 75% 隨機微擾打破整片平移)
                 int straightX = x + signX;
                 if (straightX >= 0 && straightX < GRID_W && _grid[straightX][y] == 0) {
-                    _grid[straightX][y] = grain;
-                    _grid[x][y] = 0;
-                    continue;
+                    if (isSurface || (EntropyManager::random(0, 100) < 75)) {
+                        _grid[straightX][y] = grain;
+                        _grid[x][y] = 0;
+                        continue;
+                    }
                 }
 
                 // 橫移受阻，嘗試斜向側滑
-                bool preferGravitySide = (absY > 0.15f) ? true : (EntropyManager::random(0, 2) == 0);
+                bool preferGravitySide = (absY > 0.12f) ? true : (EntropyManager::random(0, 2) == 0);
                 int8_t s1 = preferGravitySide ? signY : -signY;
                 int8_t s2 = -s1;
 
@@ -211,8 +251,8 @@ void SceneSand::updatePhysics(float ax, float ay, bool isShaking, AudioManager& 
                     continue;
                 }
 
-                // 若橫向完全堵塞且垂直重力顯著，允許垂直滑移
-                if (absY > 0.35f) {
+                // 側向完全堵塞時的垂直滑動
+                if (isSurface && absY > 0.30f && (EntropyManager::random(0, 100) < 70)) {
                     int vertY = y + signY;
                     if (vertY >= 0 && vertY < GRID_H && _grid[x][vertY] == 0) {
                         _grid[x][vertY] = grain;
@@ -233,18 +273,18 @@ void SceneSand::update(InputManager& input, AudioManager& audio, LedManager& led
         return;
     }
 
-    // 2. Button A 短按：循環切換沙色主題
+    // 2. Button A 短按：循環切換沙色主題 (獨立切換，絕不觸發加沙)
     if (input.btnAPressed) {
         _theme = (SandTheme)((_theme + 1) % THEME_COUNT);
         audio.playClick();
         _needsRedraw = true;
     }
 
-    // 3. 搖桿或按鍵加沙
+    // 3. 搖桿偏移或按下中鍵加沙 (徹底排除 Button A，避免換色時誤加沙)
     uint32_t now = millis();
     int joyX = input.joyX;
     int joyY = input.joyY;
-    bool isAddingSand = (abs(joyX) > 30 || abs(joyY) > 30 || input.joyBtnPressed || input.isBtnAHeld);
+    bool isAddingSand = (abs(joyX) > 35 || abs(joyY) > 35 || input.joyBtnPressed);
 
     if (isAddingSand && (now - _lastSpawnTime > 75)) {
         _lastSpawnTime = now;
@@ -258,10 +298,7 @@ void SceneSand::update(InputManager& input, AudioManager& audio, LedManager& led
     // 4. 定時物理模擬推進 (30ms 週期，約 33 FPS)
     if (now - _lastPhysicsTime >= 30) {
         _lastPhysicsTime = now;
-        float ax = 0, ay = 0, az = 0;
-        M5.Imu.getAccelData(&ax, &ay, &az);
-
-        updatePhysics(ax, ay, input.isActivelyShaking, audio);
+        updatePhysics(audio);
         _needsRedraw = true;
     }
 
