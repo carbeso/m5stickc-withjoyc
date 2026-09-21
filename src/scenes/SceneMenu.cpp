@@ -22,7 +22,8 @@ const MenuItem MENU_ITEMS[] = {
     {"COIN TOSS", "1-5 COINS", COLOR_GOLD, SCENE_COIN},
     {"ROCK PAPER SCIS", "1-2 HANDS DUEL", 0xFBE0, SCENE_RPS},
     {"1A2B PUZZLE", "GUESS 4 DIGITS", COLOR_LIGHT_BLUE, SCENE_1A2B},
-    {"STANDBY CLOCK", "RAIN & RTC TIME", 0x4A69, SCENE_STANDBY}
+    {"STANDBY CLOCK", "RAIN & RTC TIME", 0x4A69, SCENE_STANDBY},
+    {"SENSOR LAB", "LEVEL/G/RF/LED", COLOR_CYAN, SCENE_SENSOR_LAB}
 };
 const uint8_t MENU_COUNT = sizeof(MENU_ITEMS) / sizeof(MENU_ITEMS[0]);
 const uint8_t VISIBLE_CARDS = 3; // 一頁顯示 3 張寬敞大卡片，告別文字擠壓
@@ -183,7 +184,8 @@ void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led
         (_selectedIdx == 5) ? 0xFFCC00 :
         (_selectedIdx == 6) ? 0xFF8800 :
         (_selectedIdx == 7) ? 0x00AAFF :
-                              0x00FF88
+        (_selectedIdx == 8) ? 0x00FF88 :
+                              0x00D0FF
     );
 }
 
