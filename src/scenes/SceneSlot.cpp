@@ -4,6 +4,7 @@
  */
 
 #include "scenes/SceneSlot.h"
+#include "EntropyManager.h"
 
 const int CELL_W = 36;
 const int CELL_H = 40;
@@ -19,7 +20,7 @@ SceneSlot::SceneSlot()
         _colSpinning[c] = false;
         _colOffset[c] = 0;
         for (int r = 0; r < 3; r++) {
-            _grid[c][r] = random(0, SYM_COUNT);
+            _grid[c][r] = EntropyManager::random(0, SYM_COUNT);
         }
     }
 }
@@ -33,10 +34,9 @@ void SceneSlot::init() {
     for (int c = 0; c < 3; c++) {
         _colSpinning[c] = false;
         for (int r = 0; r < 3; r++) {
-            _grid[c][r] = random(0, SYM_COUNT);
+            _grid[c][r] = EntropyManager::random(0, SYM_COUNT);
         }
     }
-    M5.Lcd.fillScreen(TFT_BLACK);
 }
 
 void SceneSlot::pullLever(AudioManager& audio, LedManager& led) {
@@ -113,7 +113,7 @@ void SceneSlot::update(InputManager& input, AudioManager& audio, LedManager& led
         for (int c = 0; c < 3; c++) {
             if (_colSpinning[c]) {
                 for (int r = 0; r < 3; r++) {
-                    _grid[c][r] = random(0, SYM_COUNT);
+                    _grid[c][r] = EntropyManager::random(0, SYM_COUNT);
                 }
             }
         }
@@ -168,53 +168,53 @@ void SceneSlot::drawSymbol(int x, int y, uint8_t sym, bool highlight) {
     int cx = x + CELL_W / 2;
     int cy = y + CELL_H / 2;
 
-    M5.Lcd.fillRoundRect(x, y, CELL_W, CELL_H, 4, bg);
-    M5.Lcd.drawRoundRect(x, y, CELL_W, CELL_H, 4, border);
+    g_canvas.fillRoundRect(x, y, CELL_W, CELL_H, 4, bg);
+    g_canvas.drawRoundRect(x, y, CELL_W, CELL_H, 4, border);
 
     switch (sym) {
         case SYM_SEVEN:
-            M5.Lcd.setTextColor(highlight ? TFT_BLACK : TFT_RED, bg);
-            M5.Lcd.drawCentreString("7", cx, cy - 14, 4);
+            g_canvas.setTextColor(highlight ? TFT_BLACK : TFT_RED, bg);
+            g_canvas.drawCentreString("7", cx, cy - 14, 4);
             break;
 
         case SYM_BAR:
-            M5.Lcd.drawRoundRect(cx - 14, cy - 8, 28, 16, 2, highlight ? TFT_BLACK : COLOR_GOLD);
-            M5.Lcd.setTextColor(highlight ? TFT_BLACK : TFT_WHITE, bg);
-            M5.Lcd.drawCentreString("BAR", cx, cy - 5, 1);
+            g_canvas.drawRoundRect(cx - 14, cy - 8, 28, 16, 2, highlight ? TFT_BLACK : COLOR_GOLD);
+            g_canvas.setTextColor(highlight ? TFT_BLACK : TFT_WHITE, bg);
+            g_canvas.drawCentreString("BAR", cx, cy - 5, 1);
             break;
 
         case SYM_BELL:
-            M5.Lcd.fillCircle(cx, cy - 6, 4, highlight ? TFT_BLACK : COLOR_GOLD);
-            M5.Lcd.fillTriangle(cx - 9, cy + 6, cx + 9, cy + 6, cx, cy - 6, highlight ? TFT_BLACK : COLOR_GOLD);
-            M5.Lcd.fillCircle(cx, cy + 8, 3, highlight ? TFT_BLACK : COLOR_GOLD);
+            g_canvas.fillCircle(cx, cy - 6, 4, highlight ? TFT_BLACK : COLOR_GOLD);
+            g_canvas.fillTriangle(cx - 9, cy + 6, cx + 9, cy + 6, cx, cy - 6, highlight ? TFT_BLACK : COLOR_GOLD);
+            g_canvas.fillCircle(cx, cy + 8, 3, highlight ? TFT_BLACK : COLOR_GOLD);
             break;
 
         case SYM_CHERRY:
-            M5.Lcd.fillCircle(cx - 5, cy + 5, 5, TFT_RED);
-            M5.Lcd.fillCircle(cx + 6, cy + 3, 5, TFT_RED);
-            M5.Lcd.drawLine(cx - 5, cy + 1, cx, cy - 8, TFT_GREEN);
-            M5.Lcd.drawLine(cx + 6, cy - 1, cx, cy - 8, TFT_GREEN);
+            g_canvas.fillCircle(cx - 5, cy + 5, 5, TFT_RED);
+            g_canvas.fillCircle(cx + 6, cy + 3, 5, TFT_RED);
+            g_canvas.drawLine(cx - 5, cy + 1, cx, cy - 8, TFT_GREEN);
+            g_canvas.drawLine(cx + 6, cy - 1, cx, cy - 8, TFT_GREEN);
             break;
 
         case SYM_LEMON:
-            M5.Lcd.fillCircle(cx, cy, 8, TFT_YELLOW);
-            M5.Lcd.drawPixel(cx - 9, cy, TFT_GREEN);
-            M5.Lcd.drawPixel(cx + 9, cy, TFT_GREEN);
+            g_canvas.fillCircle(cx, cy, 8, TFT_YELLOW);
+            g_canvas.drawPixel(cx - 9, cy, TFT_GREEN);
+            g_canvas.drawPixel(cx + 9, cy, TFT_GREEN);
             break;
 
         case SYM_STAR:
-            M5.Lcd.fillCircle(cx, cy, 6, highlight ? TFT_BLACK : COLOR_CYAN);
-            M5.Lcd.fillTriangle(cx, cy - 10, cx - 4, cy - 2, cx + 4, cy - 2, highlight ? TFT_BLACK : COLOR_CYAN);
-            M5.Lcd.fillTriangle(cx - 10, cy, cx - 2, cy - 4, cx - 2, cy + 4, highlight ? TFT_BLACK : COLOR_CYAN);
-            M5.Lcd.fillTriangle(cx + 10, cy, cx + 2, cy - 4, cx + 2, cy + 4, highlight ? TFT_BLACK : COLOR_CYAN);
+            g_canvas.fillCircle(cx, cy, 6, highlight ? TFT_BLACK : COLOR_CYAN);
+            g_canvas.fillTriangle(cx, cy - 10, cx - 4, cy - 2, cx + 4, cy - 2, highlight ? TFT_BLACK : COLOR_CYAN);
+            g_canvas.fillTriangle(cx - 10, cy, cx - 2, cy - 4, cx - 2, cy + 4, highlight ? TFT_BLACK : COLOR_CYAN);
+            g_canvas.fillTriangle(cx + 10, cy, cx + 2, cy - 4, cx + 2, cy + 4, highlight ? TFT_BLACK : COLOR_CYAN);
             break;
 
         case SYM_CLOVER:
-            M5.Lcd.fillCircle(cx - 4, cy - 4, 4, TFT_GREEN);
-            M5.Lcd.fillCircle(cx + 4, cy - 4, 4, TFT_GREEN);
-            M5.Lcd.fillCircle(cx - 4, cy + 4, 4, TFT_GREEN);
-            M5.Lcd.fillCircle(cx + 4, cy + 4, 4, TFT_GREEN);
-            M5.Lcd.drawLine(cx, cy, cx, cy + 10, TFT_GREEN);
+            g_canvas.fillCircle(cx - 4, cy - 4, 4, TFT_GREEN);
+            g_canvas.fillCircle(cx + 4, cy - 4, 4, TFT_GREEN);
+            g_canvas.fillCircle(cx - 4, cy + 4, 4, TFT_GREEN);
+            g_canvas.fillCircle(cx + 4, cy + 4, 4, TFT_GREEN);
+            g_canvas.drawLine(cx, cy, cx, cy + 10, TFT_GREEN);
             break;
     }
 }
@@ -223,10 +223,13 @@ void SceneSlot::draw() {
     if (!_needsRedraw) return;
     _needsRedraw = false;
 
+    // 方案 A：使用全域雙緩衝畫布離線繪圖，消除拉霸轉輪與底部文字閃爍
+    g_canvas.fillSprite(TFT_BLACK);
+
     // 頂部狀態列
-    M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 26, 0x18C3);
-    M5.Lcd.setTextColor(COLOR_GOLD, 0x18C3);
-    M5.Lcd.drawString("SLOT 3x3", 8, 5, 2);
+    g_canvas.fillRect(0, 0, SCREEN_WIDTH, 26, 0x18C3);
+    g_canvas.setTextColor(COLOR_GOLD, 0x18C3);
+    g_canvas.drawString("SLOT 3x3", 8, 5, 2);
 
     if (_hasWon) {
         uint8_t winCount = 0;
@@ -235,8 +238,8 @@ void SceneSlot::draw() {
         }
         char winLineStr[16];
         snprintf(winLineStr, sizeof(winLineStr), "%d %s!", winCount, (winCount > 1) ? "LINES" : "LINE");
-        M5.Lcd.setTextColor(TFT_GREEN, 0x18C3);
-        M5.Lcd.drawRightString(winLineStr, SCREEN_WIDTH - 8, 6, 2);
+        g_canvas.setTextColor(TFT_GREEN, 0x18C3);
+        g_canvas.drawRightString(winLineStr, SCREEN_WIDTH - 8, 6, 2);
     }
 
     // 繪製 3x3 九宮格
@@ -259,23 +262,26 @@ void SceneSlot::draw() {
     }
 
     // 底部狀態
-    M5.Lcd.fillRect(0, 172, SCREEN_WIDTH, 68, TFT_BLACK);
-    M5.Lcd.drawFastHLine(8, 172, SCREEN_WIDTH - 16, 0x39E7);
+    g_canvas.fillRect(0, 172, SCREEN_WIDTH, 68, TFT_BLACK);
+    g_canvas.drawFastHLine(8, 172, SCREEN_WIDTH - 16, 0x39E7);
 
     bool anySpinning = (_colSpinning[0] || _colSpinning[1] || _colSpinning[2]);
     if (anySpinning) {
-        M5.Lcd.setTextColor(COLOR_CYAN, TFT_BLACK);
-        M5.Lcd.drawCentreString("SPINNING...", SCREEN_WIDTH / 2, 184, 2);
+        g_canvas.setTextColor(COLOR_CYAN, TFT_BLACK);
+        g_canvas.drawCentreString("SPINNING...", SCREEN_WIDTH / 2, 184, 2);
     } else if (_hasWon) {
-        M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
-        M5.Lcd.drawCentreString("*** JACKPOT! ***", SCREEN_WIDTH / 2, 182, 2);
+        g_canvas.setTextColor(COLOR_GOLD, TFT_BLACK);
+        g_canvas.drawCentreString("*** JACKPOT! ***", SCREEN_WIDTH / 2, 182, 2);
     } else {
-        M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
-        M5.Lcd.drawCentreString("PULL JOY DOWN", SCREEN_WIDTH / 2, 184, 2);
-        M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        M5.Lcd.drawCentreString("Hold to Spin, Release", SCREEN_WIDTH / 2, 204, 1);
+        g_canvas.setTextColor(COLOR_GOLD, TFT_BLACK);
+        g_canvas.drawCentreString("PULL JOY DOWN", SCREEN_WIDTH / 2, 184, 2);
+        g_canvas.setTextColor(TFT_DARKGREY, TFT_BLACK);
+        g_canvas.drawCentreString("Hold to Spin, Release", SCREEN_WIDTH / 2, 204, 1);
     }
 
-    M5.Lcd.setTextColor(0x52AA, TFT_BLACK);
-    M5.Lcd.drawCentreString("Hold Btn B: Exit", SCREEN_WIDTH / 2, 224, 1);
+    g_canvas.setTextColor(0x52AA, TFT_BLACK);
+    g_canvas.drawCentreString("Hold Btn B: Exit", SCREEN_WIDTH / 2, 224, 1);
+
+    // 一次性推送畫面至 ST7789v2 螢幕
+    g_canvas.pushSprite(0, 0);
 }

@@ -4,6 +4,7 @@
  */
 
 #include "scenes/SceneMenu.h"
+#include "EntropyManager.h"
 
 struct MenuItem {
     const char* name;
@@ -19,7 +20,11 @@ const MenuItem MENU_ITEMS[] = {
     {"ROULETTE", "EUROPEAN 0-36", COLOR_CYAN, SCENE_ROULETTE},
     {"SLOT 3x3", "PULL JOY DOWN", TFT_GREEN, SCENE_SLOT},
     {"COIN TOSS", "1-5 COINS", COLOR_GOLD, SCENE_COIN},
-    {"ROCK PAPER SCIS", "1-2 HANDS DUEL", 0xFBE0, SCENE_RPS}
+    {"ROCK PAPER SCIS", "1-2 HANDS DUEL", 0xFBE0, SCENE_RPS},
+    {"1A2B PUZZLE", "GUESS 4 DIGITS", COLOR_LIGHT_BLUE, SCENE_1A2B},
+    {"STANDBY CLOCK", "RAIN & RTC TIME", 0x4A69, SCENE_STANDBY},
+    {"SENSOR LAB", "LEVEL/G/RF/LED", COLOR_CYAN, SCENE_SENSOR_LAB},
+    {"SPECTRUM FFT", "AUDIO & IMU VIBE", TFT_MAGENTA, SCENE_SPECTRUM}
 };
 const uint8_t MENU_COUNT = sizeof(MENU_ITEMS) / sizeof(MENU_ITEMS[0]);
 const uint8_t VISIBLE_CARDS = 3; // 一頁顯示 3 張寬敞大卡片，告別文字擠壓
@@ -27,7 +32,8 @@ const uint8_t VISIBLE_CARDS = 3; // 一頁顯示 3 張寬敞大卡片，告別�
 const uint8_t BRIGHTNESS_VALUES[] = {35, 70, 100};
 
 SceneMenu::SceneMenu()
-    : _selectedIdx(0), _topIdx(0), _needsRedraw(true), _brightnessLevel(1), _cachedMuteState(false),
+    : _selectedIdx(0), _topIdx(0), _redrawAll(true), _redrawHeader(true), _redrawCards(true),
+      _brightnessLevel(1), _cachedMuteState(false),
       _lastBatCheckTime(0), _cachedBatPct(100), _cachedIsCharging(false) {}
 
 void SceneMenu::applyBrightness() {
@@ -71,12 +77,13 @@ void SceneMenu::drawBatteryIcon(int x, int y, uint8_t pct, bool charging) {
 }
 
 void SceneMenu::init() {
-    _needsRedraw = true;
+    _redrawAll = true;
+    _redrawHeader = true;
+    _redrawCards = true;
     _nextScene = SCENE_COUNT;
     applyBrightness();
     updateBatteryInfo();
     _lastBatCheckTime = millis();
-    M5.Lcd.fillScreen(TFT_BLACK);
 }
 
 void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led) {
@@ -84,7 +91,7 @@ void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led
     if (input.btnBPressed) {
         audio.toggleMute();
         _cachedMuteState = audio.isMuted();
-        _needsRedraw = true;
+        _redrawHeader = true;
     }
 
     // 2. 搖桿上下推：切換選中遊戲項目與視窗滾動
@@ -101,7 +108,7 @@ void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led
             _topIdx = MENU_COUNT - VISIBLE_CARDS;
         }
         audio.playTick();
-        _needsRedraw = true;
+        _redrawCards = true;
     } else if (input.joyPulledDown) {
         if (_selectedIdx < MENU_COUNT - 1) {
             _selectedIdx++;
@@ -115,7 +122,7 @@ void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led
             _topIdx = 0;
         }
         audio.playTick();
-        _needsRedraw = true;
+        _redrawCards = true;
     }
 
     // 3. 搖桿左右推：調整螢幕亮度 (35% -> 70% -> 100%)
@@ -124,25 +131,25 @@ void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led
         else _brightnessLevel = 2;
         applyBrightness();
         audio.playTick();
-        _needsRedraw = true;
+        _redrawHeader = true;
     } else if (input.joyPushedRight) {
         if (_brightnessLevel < 2) _brightnessLevel++;
         else _brightnessLevel = 0;
         applyBrightness();
         audio.playTick();
-        _needsRedraw = true;
+        _redrawHeader = true;
     }
 
     // 4. 晃動機身：隨機選取遊戲
     if (input.isShaken) {
-        _selectedIdx = random(0, MENU_COUNT);
+        _selectedIdx = EntropyManager::random(0, MENU_COUNT);
         if (_selectedIdx < _topIdx) {
             _topIdx = _selectedIdx;
         } else if (_selectedIdx >= _topIdx + VISIBLE_CARDS) {
             _topIdx = _selectedIdx - VISIBLE_CARDS + 1;
         }
         audio.playDiceRoll();
-        _needsRedraw = true;
+        _redrawCards = true;
     }
 
     // 5. 按下中心鍵或 Button A：確認進入遊戲
@@ -152,7 +159,7 @@ void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led
         return;
     }
 
-    // 6. 每 1500ms 定時更新電量百分比
+    // 6. 每 1500ms 定時更新電量百分比 (僅局部刷新頂部狀態列)
     uint32_t now = millis();
     if (now - _lastBatCheckTime > 1500) {
         _lastBatCheckTime = now;
@@ -160,8 +167,14 @@ void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led
         bool prevChg = _cachedIsCharging;
         updateBatteryInfo();
         if (prevPct != _cachedBatPct || prevChg != _cachedIsCharging) {
-            _needsRedraw = true;
+            _redrawHeader = true;
         }
+    }
+
+    // 7. 全域無操作閒置 60 秒：自動進入待機休眠
+    if (now - input.lastActivityTime > 60000) {
+        _nextScene = SCENE_STANDBY;
+        return;
     }
 
     // 設定 LED 燈色配合當前選中遊戲
@@ -172,17 +185,16 @@ void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led
         (_selectedIdx == 3) ? 0x00D0FF :
         (_selectedIdx == 4) ? 0x00FF33 :
         (_selectedIdx == 5) ? 0xFFCC00 :
-                              0xFF8800
+        (_selectedIdx == 6) ? 0xFF8800 :
+        (_selectedIdx == 7) ? 0x00AAFF :
+        (_selectedIdx == 8) ? 0x00FF88 :
+        (_selectedIdx == 9) ? 0x00D0FF :
+                              0xFF00AA
     );
 }
 
-void SceneMenu::draw() {
-    if (!_needsRedraw) return;
-    _needsRedraw = false;
-
-    M5.Lcd.fillScreen(TFT_BLACK);
-
-    // 1. 頂部狀態列 (Y: 0 ~ 34)
+void SceneMenu::drawHeader() {
+    // 頂部狀態列 (Y: 0 ~ 34)
     M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 34, 0x18C3);
 
     // 第一行：左側系統名稱，右側電量百分比與圖標
@@ -208,6 +220,11 @@ void SceneMenu::draw() {
     char brtStr[14];
     snprintf(brtStr, sizeof(brtStr), "BRT: %d%%", BRIGHTNESS_VALUES[_brightnessLevel]);
     M5.Lcd.drawRightString(brtStr, SCREEN_WIDTH - 6, 21, 1);
+}
+
+void SceneMenu::drawCards() {
+    // 中央卡片與滾動條區域清空 (Y: 36 ~ 188)
+    M5.Lcd.fillRect(0, 36, SCREEN_WIDTH, 153, TFT_BLACK);
 
     // 2. 中央大卡片區 (Y: 39 ~ 183，3 個卡片各高 42px，間距 6px)
     int cardW = SCREEN_WIDTH - 18; // 留 6px 給右側滾動條
@@ -252,16 +269,43 @@ void SceneMenu::draw() {
     int thumbY = trackY + (_topIdx * (trackH - thumbH)) / maxTop;
     M5.Lcd.fillRoundRect(trackX, thumbY, 3, thumbH, 1, COLOR_CYAN);
 
-    // 4. 底部操作指引 (Y: 190 ~ 238)
-    M5.Lcd.drawFastHLine(8, 190, SCREEN_WIDTH - 16, 0x39E7);
-
+    // 底部即時更新當前索引指示 (Y: 194 ~ 206)
+    M5.Lcd.fillRect(0, 194, SCREEN_WIDTH, 14, TFT_BLACK);
     char enterStr[32];
     snprintf(enterStr, sizeof(enterStr), "[PRESS A / JOY] (%d/%d)", _selectedIdx + 1, MENU_COUNT);
     M5.Lcd.setTextColor(TFT_CYAN, TFT_BLACK);
     M5.Lcd.drawCentreString(enterStr, SCREEN_WIDTH / 2, 196, 1);
+}
 
+void SceneMenu::drawFooter() {
+    // 底部固定操作指引 (Y: 190 ~ 238)
+    M5.Lcd.drawFastHLine(8, 190, SCREEN_WIDTH - 16, 0x39E7);
     M5.Lcd.setTextColor(TFT_YELLOW, TFT_BLACK);
     M5.Lcd.drawCentreString("BtnB: Mute  Joy L/R: Bright", SCREEN_WIDTH / 2, 210, 1);
     M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
     M5.Lcd.drawCentreString("Shake to Random", SCREEN_WIDTH / 2, 224, 1);
+}
+
+void SceneMenu::draw() {
+    // 方案 B：局部區域更新 (Dirty Region Update)，消滅全螢幕黑屏閃爍
+    if (_redrawAll) {
+        _redrawAll = false;
+        _redrawHeader = false;
+        _redrawCards = false;
+        M5.Lcd.fillScreen(TFT_BLACK);
+        drawHeader();
+        drawCards();
+        drawFooter();
+        return;
+    }
+
+    if (_redrawHeader) {
+        _redrawHeader = false;
+        drawHeader();
+    }
+
+    if (_redrawCards) {
+        _redrawCards = false;
+        drawCards();
+    }
 }

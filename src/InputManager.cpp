@@ -4,6 +4,7 @@
  */
 
 #include "InputManager.h"
+#include "EntropyManager.h"
 
 InputManager::InputManager()
     : joyX(0), joyY(0),
@@ -12,6 +13,7 @@ InputManager::InputManager()
       joyPulledDown(false), joyPushedUp(false), joyPushedLeft(false), joyPushedRight(false),
       joyReleased(false),
       isActivelyShaking(false), isNearlyStill(true), isShaken(false),
+      lastActivityTime(0),
       _prevJoyBtn(false), _prevPulledDown(false), _prevPushedUp(false),
       _prevPushedLeft(false), _prevPushedRight(false), _prevJoyEngaged(false),
       _btnBPressedTime(0), _btnBHandled(false),
@@ -40,6 +42,8 @@ bool InputManager::begin() {
     bool ret = _joyc.begin(&Wire, MINI_JOYC_ADDR, HAT_I2C_SDA, HAT_I2C_SCL, 400000L);
     _prevJoyBtn = _joyc.getButtonStatus();
     M5.Imu.Init();
+    EntropyManager::init();
+    lastActivityTime = millis();
     return ret;
 }
 
@@ -156,4 +160,15 @@ void InputManager::update() {
 
     // 幾乎靜止：放寬至人手常態持握（只要手部不再激烈甩動且角速度回落）
     isNearlyStill = (!isActivelyShaking && gyroMag < 220.0f);
+
+    // 8. 活躍時間判定 (使用者進行任何按鍵、搖桿位移或激烈甩動)
+    bool hasActivity = joyBtnPressed || btnAPressed || btnBPressed || btnBLongPressed ||
+                       joyPulledDown || joyPushedUp || joyPushedLeft || joyPushedRight ||
+                       abs(joyX) > JOY_DEADZONE || abs(joyY) > JOY_DEADZONE || isActivelyShaking;
+    if (hasActivity) {
+        lastActivityTime = now;
+    }
+
+    // 9. 注入物理感測微噪至全域熵池 (LSB 熱微噪混合)
+    EntropyManager::feedPhysicalSamples(joyX, joyY, ax, ay, az, gx, gy, gz);
 }

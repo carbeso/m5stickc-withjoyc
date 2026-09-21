@@ -4,6 +4,7 @@
  */
 
 #include "scenes/ScenePoker.h"
+#include "EntropyManager.h"
 
 const char* VALUE_NAMES[] = {
     "", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"
@@ -45,7 +46,7 @@ void ScenePoker::resetAndShuffle() {
     }
 
     for (int i = _deckSize - 1; i > 0; i--) {
-        int j = random(0, i + 1);
+        int j = EntropyManager::random(0, i + 1);
         Card temp = _deck[i];
         _deck[i] = _deck[j];
         _deck[j] = temp;
@@ -77,8 +78,8 @@ void ScenePoker::finalizeDraw(AudioManager& audio, LedManager& led) {
 
     if (_singleMode) {
         // 單抽模式：全牌堆純隨機單抽
-        uint8_t s = random(0, _includeJokers ? 5 : 4);
-        uint8_t v = (s == 4) ? random(1, 3) : random(1, 14);
+        uint8_t s = EntropyManager::random(0, _includeJokers ? 5 : 4);
+        uint8_t v = (s == 4) ? EntropyManager::random(1, 3) : EntropyManager::random(1, 14);
         _currentCard = {s, v};
     } else {
         // 銷牌模式：按牌堆依序開出 (抽到最後一張亦完整秀出，下次再抽時才提示 EMPTY)
@@ -141,8 +142,8 @@ void ScenePoker::update(InputManager& input, AudioManager& audio, LedManager& le
 
         if (now - _lastTickTime > 45) {
             _lastTickTime = now;
-            _tempAnimCard.suit = random(0, _includeJokers ? 5 : 4);
-            _tempAnimCard.value = (_tempAnimCard.suit == 4) ? random(1, 3) : random(1, 14);
+            _tempAnimCard.suit = EntropyManager::random(0, _includeJokers ? 5 : 4);
+            _tempAnimCard.value = (_tempAnimCard.suit == 4) ? EntropyManager::random(1, 3) : EntropyManager::random(1, 14);
             audio.playTick();
             _needsRedraw = true;
         }

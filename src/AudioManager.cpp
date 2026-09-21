@@ -4,24 +4,21 @@
  */
 
 #include "AudioManager.h"
+#include "EntropyManager.h"
 
 AudioManager::AudioManager()
     : _muted(false), _playingMelody(false), _melodyStep(0), _nextNoteTime(0) {}
 
 void AudioManager::begin() {
     pinMode(BUZZER_PIN, OUTPUT);
-    noTone(BUZZER_PIN);
-    digitalWrite(BUZZER_PIN, LOW);
+    digitalWrite(BUZZER_PIN, LOW); // 預設拉低避免雜音
 }
 
 void AudioManager::toggleMute() {
     _muted = !_muted;
     if (_muted) {
         noTone(BUZZER_PIN);
-        digitalWrite(BUZZER_PIN, LOW);
         _playingMelody = false;
-    } else {
-        playClick();
     }
 }
 
@@ -37,7 +34,7 @@ void AudioManager::playTick() {
 
 void AudioManager::playDiceRoll() {
     if (_muted) return;
-    tone(BUZZER_PIN, 800 + random(0, 400), 12);
+    tone(BUZZER_PIN, 800 + EntropyManager::random(0, 400), 12);
 }
 
 void AudioManager::playCardDraw() {

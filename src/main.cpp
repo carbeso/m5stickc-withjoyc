@@ -18,10 +18,17 @@
 #include "scenes/SceneSlot.h"
 #include "scenes/SceneCoin.h"
 #include "scenes/SceneRPS.h"
+#include "scenes/Scene1A2B.h"
+#include "scenes/SceneStandby.h"
+#include "scenes/SceneSensorLab.h"
+#include "scenes/SceneSpectrum.h"
 
 InputManager input;
 AudioManager audio;
 LedManager led(input.getJoyC());
+
+// 全域雙緩衝畫布實例 (指向 M5.Lcd)
+TFT_eSprite g_canvas(&M5.Lcd);
 
 SceneMenu sceneMenu;
 SceneDice sceneDice;
@@ -31,6 +38,10 @@ SceneRoulette sceneRoulette;
 SceneSlot sceneSlot;
 SceneCoin sceneCoin;
 SceneRPS sceneRPS;
+Scene1A2B scene1A2B;
+SceneStandby sceneStandby;
+SceneSensorLab sceneSensorLab;
+SceneSpectrum sceneSpectrum;
 
 Scene* currentScene = &sceneMenu;
 
@@ -44,6 +55,10 @@ void switchScene(GameScene target) {
         case SCENE_SLOT:        currentScene = &sceneSlot; break;
         case SCENE_COIN:        currentScene = &sceneCoin; break;
         case SCENE_RPS:         currentScene = &sceneRPS; break;
+        case SCENE_1A2B:        currentScene = &scene1A2B; break;
+        case SCENE_STANDBY:     currentScene = &sceneStandby; break;
+        case SCENE_SENSOR_LAB:  currentScene = &sceneSensorLab; break;
+        case SCENE_SPECTRUM:    currentScene = &sceneSpectrum; break;
         default:                currentScene = &sceneMenu; break;
     }
     currentScene->clearNextScene();
@@ -59,6 +74,9 @@ void setup() {
     M5.Lcd.setRotation(0);
     M5.Lcd.fillScreen(TFT_BLACK);
 
+    // 初始化全域雙緩衝畫布 (135x240 RGB565，配置約 63.3KB 記憶體)
+    g_canvas.createSprite(SCREEN_WIDTH, SCREEN_HEIGHT);
+
     // 3. 蜂鳴器硬體防呆與初始化
     audio.begin();
 
@@ -72,7 +90,7 @@ void setup() {
     M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
     M5.Lcd.drawCentreString("FIDGET TOY", SCREEN_WIDTH / 2, 85, 4);
     M5.Lcd.setTextColor(COLOR_CYAN, TFT_BLACK);
-    M5.Lcd.drawCentreString("7-in-1 System", SCREEN_WIDTH / 2, 120, 2);
+    M5.Lcd.drawCentreString("Ultimate Suite", SCREEN_WIDTH / 2, 120, 2);
     audio.playClick();
     led.setColor(255, 200, 50);
 

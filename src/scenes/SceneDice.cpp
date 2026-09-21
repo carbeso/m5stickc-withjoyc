@@ -4,6 +4,7 @@
  */
 
 #include "scenes/SceneDice.h"
+#include "EntropyManager.h"
 
 const uint8_t DIE_FACES[] = {4, 6, 8, 10, 12, 20, 100};
 const char* DIE_NAMES[] = {"d4", "d6", "d8", "d10", "d12", "d20", "d100"};
@@ -21,7 +22,7 @@ void SceneDice::init() {
     _triggeredByJoy = false;
     _nextScene = SCENE_COUNT;
     for (int i = 0; i < 6; i++) {
-        _diceResults[i] = random(1, DIE_FACES[_dieTypeIdx] + 1);
+        _diceResults[i] = EntropyManager::random(1, DIE_FACES[_dieTypeIdx] + 1);
     }
     M5.Lcd.fillScreen(TFT_BLACK);
 
@@ -93,7 +94,7 @@ void SceneDice::update(InputManager& input, AudioManager& audio, LedManager& led
         if (now - _lastTickTime > interval) {
             _lastTickTime = now;
             for (uint8_t i = 0; i < _diceCount; i++) {
-                _diceResults[i] = random(1, DIE_FACES[_dieTypeIdx] + 1);
+                _diceResults[i] = EntropyManager::random(1, DIE_FACES[_dieTypeIdx] + 1);
             }
             audio.playDiceRoll();
             _needsRedraw = true;
@@ -103,7 +104,7 @@ void SceneDice::update(InputManager& input, AudioManager& audio, LedManager& led
         if (elapsed >= 2800) {
             _isRolling = false;
             for (uint8_t i = 0; i < _diceCount; i++) {
-                _diceResults[i] = random(1, DIE_FACES[_dieTypeIdx] + 1);
+                _diceResults[i] = EntropyManager::random(1, DIE_FACES[_dieTypeIdx] + 1);
             }
 
             if (DIE_FACES[_dieTypeIdx] == 20 && _diceCount == 1) {
