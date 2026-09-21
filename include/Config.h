@@ -6,6 +6,11 @@
 #pragma once
 
 #include <Arduino.h>
+#include <M5StickCPlus.h>
+
+// --- 全域雙緩衝畫布 (Double Buffering Canvas) ---
+// 供高頻動畫場景 (如 Spectrum, SensorLab, Matrix Rain) 在記憶體中離線繪製，杜絕全螢幕閃爍
+extern TFT_eSprite g_canvas;
 
 // --- 硬體腳位定義 ---
 #define BUZZER_PIN 2         // StickC 內部無源蜂鳴器接腳

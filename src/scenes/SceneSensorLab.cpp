@@ -47,8 +47,6 @@ void SceneSensorLab::init() {
 
     // 確保 Wi-Fi 預設關閉省電
     WiFi.mode(WIFI_OFF);
-
-    M5.Lcd.fillScreen(TFT_BLACK);
 }
 
 void SceneSensorLab::updateLevel(InputManager& input, AudioManager& audio) {
@@ -81,32 +79,32 @@ void SceneSensorLab::drawLevel() {
 
     // 繪製水平儀外圓與內十字準星
     uint16_t ringColor = _isCentered ? TFT_GREEN : 0x39E7;
-    M5.Lcd.drawCircle(centerX, centerY, 48, ringColor);
-    M5.Lcd.drawCircle(centerX, centerY, 24, 0x2124);
-    M5.Lcd.drawCircle(centerX, centerY, 8, _isCentered ? TFT_GREEN : 0x2965);
+    g_canvas.drawCircle(centerX, centerY, 48, ringColor);
+    g_canvas.drawCircle(centerX, centerY, 24, 0x2124);
+    g_canvas.drawCircle(centerX, centerY, 8, _isCentered ? TFT_GREEN : 0x2965);
 
-    M5.Lcd.drawFastHLine(centerX - 48, centerY, 96, 0x2124);
-    M5.Lcd.drawFastVLine(centerX, centerY - 48, 96, 0x2124);
+    g_canvas.drawFastHLine(centerX - 48, centerY, 96, 0x2124);
+    g_canvas.drawFastVLine(centerX, centerY - 48, 96, 0x2124);
 
     // 繪製氣泡 (實心圓)
     int bx = centerX + (int)_bubbleX;
     int by = centerY + (int)_bubbleY;
     uint16_t bubbleColor = _isCentered ? TFT_GREEN : COLOR_CYAN;
-    M5.Lcd.fillCircle(bx, by, 7, bubbleColor);
-    M5.Lcd.drawCircle(bx, by, 7, TFT_WHITE);
+    g_canvas.fillCircle(bx, by, 7, bubbleColor);
+    g_canvas.drawCircle(bx, by, 7, TFT_WHITE);
 
     // 數值面板
     char infoStr[32];
     snprintf(infoStr, sizeof(infoStr), "X:%+.1f  Y:%+.1f", _bubbleX / 4.2f, _bubbleY / 4.2f);
-    M5.Lcd.setTextColor(_isCentered ? TFT_GREEN : COLOR_SILVER, TFT_BLACK);
-    M5.Lcd.drawCentreString(infoStr, centerX, 175, 2);
+    g_canvas.setTextColor(_isCentered ? TFT_GREEN : COLOR_SILVER, TFT_BLACK);
+    g_canvas.drawCentreString(infoStr, centerX, 175, 2);
 
     if (_isCentered) {
-        M5.Lcd.setTextColor(TFT_GREEN, TFT_BLACK);
-        M5.Lcd.drawCentreString("[ PERFECT LEVEL ]", centerX, 195, 1);
+        g_canvas.setTextColor(TFT_GREEN, TFT_BLACK);
+        g_canvas.drawCentreString("[ PERFECT LEVEL ]", centerX, 195, 1);
     } else {
-        M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
-        M5.Lcd.drawCentreString("Tilt to center bubble", centerX, 195, 1);
+        g_canvas.setTextColor(TFT_DARKGREY, TFT_BLACK);
+        g_canvas.drawCentreString("Tilt to center bubble", centerX, 195, 1);
     }
 }
 
@@ -141,13 +139,13 @@ void SceneSensorLab::drawGTracker() {
     char gStr[16];
     snprintf(gStr, sizeof(gStr), "%.2f G", _currentG);
     uint16_t gColor = (_currentG > 2.5f) ? TFT_RED : (_currentG > 1.5f) ? COLOR_GOLD : TFT_GREEN;
-    M5.Lcd.setTextColor(gColor, TFT_BLACK);
-    M5.Lcd.drawCentreString(gStr, centerX, 36, 4);
+    g_canvas.setTextColor(gColor, TFT_BLACK);
+    g_canvas.drawCentreString(gStr, centerX, 36, 4);
 
     char peakStr[32];
     snprintf(peakStr, sizeof(peakStr), "5s Peak: %.2f G", _peakG);
-    M5.Lcd.setTextColor(COLOR_CYAN, TFT_BLACK);
-    M5.Lcd.drawCentreString(peakStr, centerX, 68, 2);
+    g_canvas.setTextColor(COLOR_CYAN, TFT_BLACK);
+    g_canvas.drawCentreString(peakStr, centerX, 68, 2);
 
     // 2. 5 秒滑動歷史長條圖 (Y: 95 ~ 165，高 70px)
     int chartX = 15;
@@ -155,8 +153,8 @@ void SceneSensorLab::drawGTracker() {
     int chartW = SCREEN_WIDTH - 30; // 105px
     int chartH = 65;
 
-    M5.Lcd.drawRect(chartX, chartY, chartW, chartH, 0x2965);
-    M5.Lcd.drawFastHLine(chartX, chartY + chartH - 16, chartW, 0x18C3); // 1.0G 基準線
+    g_canvas.drawRect(chartX, chartY, chartW, chartH, 0x2965);
+    g_canvas.drawFastHLine(chartX, chartY + chartH - 16, chartW, 0x18C3); // 1.0G 基準線
 
     for (uint8_t i = 0; i < G_HIST_SIZE && i * 2 < chartW; i++) {
         uint8_t readIdx = (_gHistIdx + i) % G_HIST_SIZE;
@@ -168,17 +166,17 @@ void SceneSensorLab::drawGTracker() {
         int bx = chartX + i * 2;
         int by = chartY + chartH - barH;
         uint16_t bColor = (val > 2.5f) ? TFT_RED : (val > 1.5f) ? COLOR_GOLD : COLOR_CYAN;
-        M5.Lcd.drawFastVLine(bx, by, barH, bColor);
+        g_canvas.drawFastVLine(bx, by, barH, bColor);
     }
 
     // 3. 受力方向與提示 (Y: 175 ~ 205)
     char dirStr[32];
     snprintf(dirStr, sizeof(dirStr), "Vector Ax:%+.1f Ay:%+.1f", _peakAx, _peakAy);
-    M5.Lcd.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-    M5.Lcd.drawCentreString(dirStr, centerX, 175, 1);
+    g_canvas.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+    g_canvas.drawCentreString(dirStr, centerX, 175, 1);
 
-    M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    M5.Lcd.drawCentreString("Shake or slam to test G-Force", centerX, 192, 1);
+    g_canvas.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    g_canvas.drawCentreString("Shake or slam to test G-Force", centerX, 192, 1);
 }
 
 void SceneSensorLab::startWifiScan() {
@@ -220,46 +218,46 @@ void SceneSensorLab::updateRfScanner(InputManager& input, AudioManager& audio) {
 void SceneSensorLab::drawRfScanner() {
     int centerX = SCREEN_WIDTH / 2;
 
-    M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
-    M5.Lcd.drawCentreString("2.4G RF SCANNER", centerX, 35, 2);
+    g_canvas.setTextColor(COLOR_GOLD, TFT_BLACK);
+    g_canvas.drawCentreString("2.4G RF SCANNER", centerX, 35, 2);
 
     if (_isScanningWifi) {
-        M5.Lcd.setTextColor(COLOR_CYAN, TFT_BLACK);
-        M5.Lcd.drawCentreString("SCANNING RF...", centerX, 95, 2);
-        M5.Lcd.drawRoundRect(20, 125, SCREEN_WIDTH - 40, 6, 2, 0x39E7);
+        g_canvas.setTextColor(COLOR_CYAN, TFT_BLACK);
+        g_canvas.drawCentreString("SCANNING RF...", centerX, 95, 2);
+        g_canvas.drawRoundRect(20, 125, SCREEN_WIDTH - 40, 6, 2, 0x39E7);
         int dotX = 20 + ((millis() / 50) % (SCREEN_WIDTH - 44));
-        M5.Lcd.fillRect(dotX, 126, 8, 4, TFT_GREEN);
+        g_canvas.fillRect(dotX, 126, 8, 4, TFT_GREEN);
     } else {
         if (_foundAps == 0) {
-            M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
-            M5.Lcd.drawCentreString("No APs / Click Joy", centerX, 95, 2);
-            M5.Lcd.drawCentreString("to start Scan", centerX, 115, 1);
+            g_canvas.setTextColor(TFT_DARKGREY, TFT_BLACK);
+            g_canvas.drawCentreString("No APs / Click Joy", centerX, 95, 2);
+            g_canvas.drawCentreString("to start Scan", centerX, 115, 1);
         } else {
             for (uint8_t i = 0; i < _foundAps; i++) {
                 int y = 65 + i * 40;
-                M5.Lcd.drawRoundRect(10, y, SCREEN_WIDTH - 20, 34, 3, 0x2965);
+                g_canvas.drawRoundRect(10, y, SCREEN_WIDTH - 20, 34, 3, 0x2965);
 
                 // SSID
-                M5.Lcd.setTextColor(TFT_WHITE, TFT_BLACK);
-                M5.Lcd.drawString(_topAps[i].ssid, 16, y + 5, 1);
+                g_canvas.setTextColor(TFT_WHITE, TFT_BLACK);
+                g_canvas.drawString(_topAps[i].ssid, 16, y + 5, 1);
 
                 // RSSI 與訊號強度條
                 char rssiStr[16];
                 snprintf(rssiStr, sizeof(rssiStr), "%d dBm", (int)_topAps[i].rssi);
                 uint16_t sigColor = (_topAps[i].rssi > -60) ? TFT_GREEN :
                                     (_topAps[i].rssi > -75) ? COLOR_GOLD : TFT_RED;
-                M5.Lcd.setTextColor(sigColor, TFT_BLACK);
-                M5.Lcd.drawRightString(rssiStr, SCREEN_WIDTH - 16, y + 5, 1);
+                g_canvas.setTextColor(sigColor, TFT_BLACK);
+                g_canvas.drawRightString(rssiStr, SCREEN_WIDTH - 16, y + 5, 1);
 
                 // 訊號進度條
                 int barW = map(constrain(_topAps[i].rssi, -95, -35), -95, -35, 4, SCREEN_WIDTH - 36);
-                M5.Lcd.fillRect(16, y + 22, barW, 4, sigColor);
+                g_canvas.fillRect(16, y + 22, barW, 4, sigColor);
             }
         }
     }
 
-    M5.Lcd.setTextColor(TFT_YELLOW, TFT_BLACK);
-    M5.Lcd.drawCentreString("Click Joy to Re-Scan", centerX, 195, 1);
+    g_canvas.setTextColor(TFT_YELLOW, TFT_BLACK);
+    g_canvas.drawCentreString("Click Joy to Re-Scan", centerX, 195, 1);
 }
 
 void SceneSensorLab::updateLedStudio(InputManager& input, LedManager& led) {
@@ -283,26 +281,26 @@ void SceneSensorLab::drawLedStudio() {
     int centerX = SCREEN_WIDTH / 2;
 
     // 1. 全幅調光預覽色塊 (Y: 35 ~ 115)
-    uint16_t previewColor = M5.Lcd.color565(_ledR, _ledG, _ledB);
-    M5.Lcd.fillRoundRect(15, 35, SCREEN_WIDTH - 30, 80, 6, previewColor);
-    M5.Lcd.drawRoundRect(15, 35, SCREEN_WIDTH - 30, 80, 6, TFT_WHITE);
+    uint16_t previewColor = g_canvas.color565(_ledR, _ledG, _ledB);
+    g_canvas.fillRoundRect(15, 35, SCREEN_WIDTH - 30, 80, 6, previewColor);
+    g_canvas.drawRoundRect(15, 35, SCREEN_WIDTH - 30, 80, 6, TFT_WHITE);
 
     // 2. HEX 色碼與 RGB 數值 (Y: 125 ~ 170)
     char hexStr[16];
     snprintf(hexStr, sizeof(hexStr), "#%02X%02X%02X", _ledR, _ledG, _ledB);
-    M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
-    M5.Lcd.drawCentreString(hexStr, centerX, 126, 4);
+    g_canvas.setTextColor(COLOR_GOLD, TFT_BLACK);
+    g_canvas.drawCentreString(hexStr, centerX, 126, 4);
 
     char rgbStr[32];
     snprintf(rgbStr, sizeof(rgbStr), "R:%d G:%d B:%d (Brt:%d%%)", _ledR, _ledG, _ledB, _brightness);
-    M5.Lcd.setTextColor(COLOR_CYAN, TFT_BLACK);
-    M5.Lcd.drawCentreString(rgbStr, centerX, 156, 1);
+    g_canvas.setTextColor(COLOR_CYAN, TFT_BLACK);
+    g_canvas.drawCentreString(rgbStr, centerX, 156, 1);
 
     // 3. 底部操作提示 (Y: 180 ~ 205)
-    M5.Lcd.setTextColor(TFT_YELLOW, TFT_BLACK);
-    M5.Lcd.drawCentreString("Joy X: Hue (Color)", centerX, 180, 1);
-    M5.Lcd.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-    M5.Lcd.drawCentreString("Joy Y: Brightness", centerX, 195, 1);
+    g_canvas.setTextColor(TFT_YELLOW, TFT_BLACK);
+    g_canvas.drawCentreString("Joy X: Hue (Color)", centerX, 180, 1);
+    g_canvas.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+    g_canvas.drawCentreString("Joy Y: Brightness", centerX, 195, 1);
 }
 
 void SceneSensorLab::update(InputManager& input, AudioManager& audio, LedManager& led) {
@@ -324,7 +322,6 @@ void SceneSensorLab::update(InputManager& input, AudioManager& audio, LedManager
         } else {
             startWifiScan();
         }
-        M5.Lcd.fillScreen(TFT_BLACK);
         _needsRedraw = true;
         return;
     }
@@ -343,7 +340,8 @@ void SceneSensorLab::draw() {
     if (!_needsRedraw) return;
     _needsRedraw = false;
 
-    M5.Lcd.fillScreen(TFT_BLACK);
+    // 方案 A：使用全域雙緩衝畫布離線渲染，徹底杜絕畫面撕裂與閃爍
+    g_canvas.fillSprite(TFT_BLACK);
 
     // 頂部分頁導覽列 (Y: 0 ~ 26)
     const char* TAB_NAMES[] = {"LEVEL", "G-TRK", "RF", "LED"};
@@ -353,16 +351,16 @@ void SceneSensorLab::draw() {
         int tx = i * tabW;
         bool isSel = (i == _currentTab);
         if (isSel) {
-            M5.Lcd.fillRect(tx, 0, tabW, 24, COLOR_CYAN);
-            M5.Lcd.setTextColor(TFT_BLACK, COLOR_CYAN);
+            g_canvas.fillRect(tx, 0, tabW, 24, COLOR_CYAN);
+            g_canvas.setTextColor(TFT_BLACK, COLOR_CYAN);
         } else {
-            M5.Lcd.fillRect(tx, 0, tabW, 24, 0x18C3);
-            M5.Lcd.setTextColor(TFT_LIGHTGREY, 0x18C3);
+            g_canvas.fillRect(tx, 0, tabW, 24, 0x18C3);
+            g_canvas.setTextColor(TFT_LIGHTGREY, 0x18C3);
         }
-        M5.Lcd.drawCentreString(TAB_NAMES[i], tx + tabW / 2, 4, 1);
+        g_canvas.drawCentreString(TAB_NAMES[i], tx + tabW / 2, 4, 1);
     }
 
-    // 繪製當前分頁內容
+    // 繪製當前分頁內容至畫布
     switch (_currentTab) {
         case TAB_LEVEL:      drawLevel(); break;
         case TAB_G_TRACKER:  drawGTracker(); break;
@@ -372,9 +370,12 @@ void SceneSensorLab::draw() {
     }
 
     // 底部全域分頁提示 (Y: 215 ~ 238)
-    M5.Lcd.drawFastHLine(8, 214, SCREEN_WIDTH - 16, 0x2965);
-    M5.Lcd.setTextColor(TFT_CYAN, TFT_BLACK);
-    M5.Lcd.drawCentreString("[Btn A]: Next Tab", SCREEN_WIDTH / 2, 218, 1);
-    M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    M5.Lcd.drawCentreString("Hold Btn B: Exit", SCREEN_WIDTH / 2, 228, 1);
+    g_canvas.drawFastHLine(8, 214, SCREEN_WIDTH - 16, 0x2965);
+    g_canvas.setTextColor(TFT_CYAN, TFT_BLACK);
+    g_canvas.drawCentreString("[Btn A]: Next Tab", SCREEN_WIDTH / 2, 218, 1);
+    g_canvas.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    g_canvas.drawCentreString("Hold Btn B: Exit", SCREEN_WIDTH / 2, 228, 1);
+
+    // 一次性將記憶體畫面推送到螢幕
+    g_canvas.pushSprite(0, 0);
 }

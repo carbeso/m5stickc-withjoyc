@@ -27,6 +27,9 @@ InputManager input;
 AudioManager audio;
 LedManager led(input.getJoyC());
 
+// 全域雙緩衝畫布實例 (指向 M5.Lcd)
+TFT_eSprite g_canvas(&M5.Lcd);
+
 SceneMenu sceneMenu;
 SceneDice sceneDice;
 ScenePoker scenePoker;
@@ -70,6 +73,9 @@ void setup() {
     // 2. 固定螢幕為直向模式 (135x240，搖桿在上方，無需上下反轉)
     M5.Lcd.setRotation(0);
     M5.Lcd.fillScreen(TFT_BLACK);
+
+    // 初始化全域雙緩衝畫布 (135x240 RGB565，配置約 63.3KB 記憶體)
+    g_canvas.createSprite(SCREEN_WIDTH, SCREEN_HEIGHT);
 
     // 3. 蜂鳴器硬體防呆與初始化
     audio.begin();

@@ -28,7 +28,7 @@ void SceneRoulette::init() {
     _stripPos = 0.0f;
     _spinStartTime = 0;
     _nextScene = SCENE_COUNT;
-    M5.Lcd.fillScreen(TFT_BLACK);
+    _targetIndex = 0;
 }
 
 void SceneRoulette::spinRoulette(AudioManager& audio, LedManager& led) {
@@ -115,7 +115,8 @@ void SceneRoulette::draw() {
     if (!_needsRedraw) return;
     _needsRedraw = false;
 
-    M5.Lcd.fillRect(0, 26, SCREEN_WIDTH, 168, TFT_BLACK);
+    // 方案 A：使用全域雙緩衝畫布離線繪圖，消除垂直輪盤捲動與指針閃爍
+    g_canvas.fillSprite(TFT_BLACK);
 
     int centerY = 110;
     int baseIdx = ((int)_stripPos / ITEM_HEIGHT);
@@ -130,29 +131,29 @@ void SceneRoulette::draw() {
 
         uint16_t bgColor = (p.colorType == 0) ? COLOR_ROU_GRN :
                            (p.colorType == 1) ? COLOR_ROU_RED : COLOR_ROU_BLK;
-        M5.Lcd.fillRoundRect(18, itemY, SCREEN_WIDTH - 36, ITEM_HEIGHT - 4, 4, bgColor);
-        M5.Lcd.drawRoundRect(18, itemY, SCREEN_WIDTH - 36, ITEM_HEIGHT - 4, 4, 0x52AA);
+        g_canvas.fillRoundRect(18, itemY, SCREEN_WIDTH - 36, ITEM_HEIGHT - 4, 4, bgColor);
+        g_canvas.drawRoundRect(18, itemY, SCREEN_WIDTH - 36, ITEM_HEIGHT - 4, 4, 0x52AA);
 
         char numStr[8];
         snprintf(numStr, sizeof(numStr), "%d", p.number);
-        M5.Lcd.setTextColor(TFT_WHITE, bgColor);
-        M5.Lcd.drawCentreString(numStr, SCREEN_WIDTH / 2, itemY + 8, 4);
+        g_canvas.setTextColor(TFT_WHITE, bgColor);
+        g_canvas.drawCentreString(numStr, SCREEN_WIDTH / 2, itemY + 8, 4);
     }
 
     // 指針
-    M5.Lcd.fillTriangle(4, centerY - 8, 4, centerY + 8, 15, centerY, COLOR_GOLD);
-    M5.Lcd.fillTriangle(SCREEN_WIDTH - 4, centerY - 8, SCREEN_WIDTH - 4, centerY + 8, SCREEN_WIDTH - 15, centerY, COLOR_GOLD);
+    g_canvas.fillTriangle(4, centerY - 8, 4, centerY + 8, 15, centerY, COLOR_GOLD);
+    g_canvas.fillTriangle(SCREEN_WIDTH - 4, centerY - 8, SCREEN_WIDTH - 4, centerY + 8, SCREEN_WIDTH - 15, centerY, COLOR_GOLD);
 
     // 頂部狀態列
-    M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 26, 0x18C3);
-    M5.Lcd.setTextColor(COLOR_CYAN, 0x18C3);
-    M5.Lcd.drawString("ROULETTE", 8, 5, 2);
-    M5.Lcd.setTextColor(TFT_WHITE, 0x18C3);
-    M5.Lcd.drawRightString("0-36", SCREEN_WIDTH - 8, 7, 1);
+    g_canvas.fillRect(0, 0, SCREEN_WIDTH, 26, 0x18C3);
+    g_canvas.setTextColor(COLOR_CYAN, 0x18C3);
+    g_canvas.drawString("ROULETTE", 8, 5, 2);
+    g_canvas.setTextColor(TFT_WHITE, 0x18C3);
+    g_canvas.drawRightString("0-36", SCREEN_WIDTH - 8, 7, 1);
 
     // 底部狀態
-    M5.Lcd.fillRect(0, 194, SCREEN_WIDTH, 46, TFT_BLACK);
-    M5.Lcd.drawFastHLine(8, 194, SCREEN_WIDTH - 16, 0x39E7);
+    g_canvas.fillRect(0, 194, SCREEN_WIDTH, 46, TFT_BLACK);
+    g_canvas.drawFastHLine(8, 194, SCREEN_WIDTH - 16, 0x39E7);
 
     if (!_isSpinning) {
         const RoulettePocket& win = WHEEL_POCKETS[_targetIndex];
@@ -163,13 +164,16 @@ void SceneRoulette::draw() {
 
         char resStr[24];
         snprintf(resStr, sizeof(resStr), "%d %s%s", win.number, colName, oddEven);
-        M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
-        M5.Lcd.drawCentreString(resStr, SCREEN_WIDTH / 2, 202, 2);
+        g_canvas.setTextColor(COLOR_GOLD, TFT_BLACK);
+        g_canvas.drawCentreString(resStr, SCREEN_WIDTH / 2, 202, 2);
     } else {
-        M5.Lcd.setTextColor(COLOR_CYAN, TFT_BLACK);
-        M5.Lcd.drawCentreString("SPINNING...", SCREEN_WIDTH / 2, 202, 2);
+        g_canvas.setTextColor(COLOR_CYAN, TFT_BLACK);
+        g_canvas.drawCentreString("SPINNING...", SCREEN_WIDTH / 2, 202, 2);
     }
 
-    M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    M5.Lcd.drawCentreString("Hold DOWN to Spin", SCREEN_WIDTH / 2, 224, 1);
+    g_canvas.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    g_canvas.drawCentreString("Hold DOWN to Spin", SCREEN_WIDTH / 2, 224, 1);
+
+    // 一次性推送整幀至 ST7789v2 螢幕
+    g_canvas.pushSprite(0, 0);
 }

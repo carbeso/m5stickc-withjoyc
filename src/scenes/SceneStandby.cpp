@@ -36,8 +36,6 @@ void SceneStandby::init() {
 
     // 進入待機降低螢幕背光至 20%，大幅省電護眼
     M5.Axp.ScreenBreath(20);
-
-    M5.Lcd.fillScreen(TFT_BLACK);
 }
 
 void SceneStandby::updateMatrix() {
@@ -76,7 +74,6 @@ void SceneStandby::update(InputManager& input, AudioManager& audio, LedManager& 
     if (input.joyPushedLeft || input.joyPushedRight) {
         _mode = (_mode == STANDBY_MATRIX) ? STANDBY_CLOCK : STANDBY_MATRIX;
         audio.playTick();
-        M5.Lcd.fillScreen(TFT_BLACK);
         _needsRedraw = true;
         return;
     }
@@ -86,7 +83,7 @@ void SceneStandby::update(InputManager& input, AudioManager& audio, LedManager& 
         if (_mode == STANDBY_MATRIX) {
             _themeIdx = (_themeIdx + 1) % 3;
             audio.playClick();
-            M5.Lcd.fillScreen(TFT_BLACK);
+            _needsRedraw = true;
         }
     }
 
@@ -117,7 +114,7 @@ void SceneStandby::update(InputManager& input, AudioManager& audio, LedManager& 
 }
 
 void SceneStandby::drawMatrix() {
-    M5.Lcd.fillScreen(TFT_BLACK);
+    g_canvas.fillSprite(TFT_BLACK);
 
     uint16_t headColor = TFT_WHITE;
     uint16_t c1, c2, c3, c4;
@@ -145,28 +142,28 @@ void SceneStandby::drawMatrix() {
                 else color = c4;
 
                 char ch = _cols[i].chars[step % 20];
-                M5.Lcd.setTextColor(color, TFT_BLACK);
-                M5.Lcd.drawChar(ch, x, y, 1);
+                g_canvas.setTextColor(color, TFT_BLACK);
+                g_canvas.drawChar(ch, x, y, 1);
             }
         }
     }
 
     // 底部浮水印提示
-    M5.Lcd.setTextColor(0x4208, TFT_BLACK);
-    M5.Lcd.drawCentreString("[STANDBY] PRESS JOY TO WAKE", SCREEN_WIDTH / 2, SCREEN_HEIGHT - 12, 1);
+    g_canvas.setTextColor(0x4208, TFT_BLACK);
+    g_canvas.drawCentreString("[STANDBY] PRESS JOY TO WAKE", SCREEN_WIDTH / 2, SCREEN_HEIGHT - 12, 1);
 }
 
 void SceneStandby::drawClock() {
-    M5.Lcd.fillScreen(TFT_BLACK);
+    g_canvas.fillSprite(TFT_BLACK);
 
     // 1. 頂部裝飾條與日期 (Y: 25 ~ 50)
-    M5.Lcd.fillRect(10, 25, SCREEN_WIDTH - 20, 24, 0x18C3);
+    g_canvas.fillRect(10, 25, SCREEN_WIDTH - 20, 24, 0x18C3);
     char dateStr[24];
     snprintf(dateStr, sizeof(dateStr), "%04d/%02d/%02d %s",
              _date.Year, _date.Month, _date.Date,
              WEEK_DAYS[_date.WeekDay % 7]);
-    M5.Lcd.setTextColor(COLOR_CYAN, 0x18C3);
-    M5.Lcd.drawCentreString(dateStr, SCREEN_WIDTH / 2, 30, 2);
+    g_canvas.setTextColor(COLOR_CYAN, 0x18C3);
+    g_canvas.drawCentreString(dateStr, SCREEN_WIDTH / 2, 30, 2);
 
     // 2. 中央大字體時間 (Y: 75 ~ 125)
     char timeStr[10];
@@ -175,21 +172,21 @@ void SceneStandby::drawClock() {
     } else {
         snprintf(timeStr, sizeof(timeStr), "%02d %02d", _time.Hours, _time.Minutes);
     }
-    M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
-    M5.Lcd.drawCentreString(timeStr, SCREEN_WIDTH / 2, 80, 6);
+    g_canvas.setTextColor(COLOR_GOLD, TFT_BLACK);
+    g_canvas.drawCentreString(timeStr, SCREEN_WIDTH / 2, 80, 6);
 
     // 3. 秒數進度條與小秒數 (Y: 135 ~ 160)
     char secStr[10];
     snprintf(secStr, sizeof(secStr), ".%02ds", _time.Seconds);
-    M5.Lcd.setTextColor(COLOR_SILVER, TFT_BLACK);
-    M5.Lcd.drawCentreString(secStr, SCREEN_WIDTH / 2, 138, 2);
+    g_canvas.setTextColor(COLOR_SILVER, TFT_BLACK);
+    g_canvas.drawCentreString(secStr, SCREEN_WIDTH / 2, 138, 2);
 
     // 圓角進度條 (60 秒平滑推進)
     int barW = SCREEN_WIDTH - 30;
     int progressW = (barW * _time.Seconds) / 60;
-    M5.Lcd.drawRoundRect(15, 158, barW, 6, 2, 0x39E7);
+    g_canvas.drawRoundRect(15, 158, barW, 6, 2, 0x39E7);
     if (progressW > 0) {
-        M5.Lcd.fillRoundRect(15, 158, progressW, 6, 2, TFT_GREEN);
+        g_canvas.fillRoundRect(15, 158, progressW, 6, 2, TFT_GREEN);
     }
 
     // 4. 電量與充電資訊 (Y: 175 ~ 195)
@@ -199,19 +196,19 @@ void SceneStandby::drawClock() {
     char pwrStr[24];
     if (isChg) {
         snprintf(pwrStr, sizeof(pwrStr), "BAT: %.2fV [CHARGING]", vbat);
-        M5.Lcd.setTextColor(COLOR_CYAN, TFT_BLACK);
+        g_canvas.setTextColor(COLOR_CYAN, TFT_BLACK);
     } else {
         snprintf(pwrStr, sizeof(pwrStr), "BAT: %.2fV [RUNNING]", vbat);
-        M5.Lcd.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+        g_canvas.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
     }
-    M5.Lcd.drawCentreString(pwrStr, SCREEN_WIDTH / 2, 178, 1);
+    g_canvas.drawCentreString(pwrStr, SCREEN_WIDTH / 2, 178, 1);
 
     // 5. 底部操作說明 (Y: 210 ~ 235)
-    M5.Lcd.drawFastHLine(10, 208, SCREEN_WIDTH - 20, 0x2965);
-    M5.Lcd.setTextColor(TFT_YELLOW, TFT_BLACK);
-    M5.Lcd.drawCentreString("Joy L/R: Matrix / Clock", SCREEN_WIDTH / 2, 214, 1);
-    M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    M5.Lcd.drawCentreString("Press Joy to Exit", SCREEN_WIDTH / 2, 226, 1);
+    g_canvas.drawFastHLine(10, 208, SCREEN_WIDTH - 20, 0x2965);
+    g_canvas.setTextColor(TFT_YELLOW, TFT_BLACK);
+    g_canvas.drawCentreString("Joy L/R: Matrix / Clock", SCREEN_WIDTH / 2, 214, 1);
+    g_canvas.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    g_canvas.drawCentreString("Press Joy to Exit", SCREEN_WIDTH / 2, 226, 1);
 }
 
 void SceneStandby::draw() {
@@ -223,4 +220,7 @@ void SceneStandby::draw() {
     } else {
         drawClock();
     }
+
+    // 一次性推送整幀畫面至 ST7789v2 螢幕
+    g_canvas.pushSprite(0, 0);
 }

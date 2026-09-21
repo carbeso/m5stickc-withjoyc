@@ -127,7 +127,6 @@ void SceneSpectrum::init() {
     }
 
     setupAudioI2S();
-    M5.Lcd.fillScreen(TFT_BLACK);
 }
 
 void SceneSpectrum::sampleAudio() {
@@ -232,7 +231,6 @@ void SceneSpectrum::update(InputManager& input, AudioManager& audio, LedManager&
             _mode = SPEC_MODE_AUDIO;
             setupAudioI2S();
         }
-        M5.Lcd.fillScreen(TFT_BLACK);
         _needsRedraw = true;
         return;
     }
@@ -262,16 +260,17 @@ void SceneSpectrum::draw() {
     if (!_needsRedraw) return;
     _needsRedraw = false;
 
-    M5.Lcd.fillScreen(TFT_BLACK);
+    // 方案 A：使用全域雙緩衝畫布在記憶體中繪製，避免 SPI 逐像素擦除造成的閃爍
+    g_canvas.fillSprite(TFT_BLACK);
 
     // 1. 頂部標題列 (Y: 0 ~ 26)
-    M5.Lcd.fillRect(0, 0, SCREEN_WIDTH, 26, 0x18C3);
-    M5.Lcd.setTextColor(COLOR_GOLD, 0x18C3);
-    M5.Lcd.drawString((_mode == SPEC_MODE_AUDIO) ? "AUDIO FFT" : "IMU VIBE", 6, 5, 2);
+    g_canvas.fillRect(0, 0, SCREEN_WIDTH, 26, 0x18C3);
+    g_canvas.setTextColor(COLOR_GOLD, 0x18C3);
+    g_canvas.drawString((_mode == SPEC_MODE_AUDIO) ? "AUDIO FFT" : "IMU VIBE", 6, 5, 2);
 
     const char* THEME_NAMES[] = {"VIBRANT", "NEON", "CYAN"};
-    M5.Lcd.setTextColor(COLOR_CYAN, 0x18C3);
-    M5.Lcd.drawRightString(THEME_NAMES[_themeIdx], SCREEN_WIDTH - 6, 5, 2);
+    g_canvas.setTextColor(COLOR_CYAN, 0x18C3);
+    g_canvas.drawRightString(THEME_NAMES[_themeIdx], SCREEN_WIDTH - 6, 5, 2);
 
     // 2. 8 頻柱等化器繪製區 (Y: 40 ~ 175，基準線 Y = 175)
     int startX = 6;
@@ -297,25 +296,28 @@ void SceneSpectrum::draw() {
                 color = (segmentH > 95) ? TFT_WHITE : (segmentH > 55) ? COLOR_CYAN : 0x0113;
             }
 
-            M5.Lcd.fillRect(x, y - 3, colW, 3, color);
+            g_canvas.fillRect(x, y - 3, colW, 3, color);
         }
 
         // 頂部峰值線 (Peak Line)
         int peakY = baseY - (int)_peakValues[b];
         if (peakY < baseY - 130) peakY = baseY - 130;
         if (peakY >= 35 && peakY <= baseY) {
-            M5.Lcd.drawFastHLine(x, peakY, colW, TFT_WHITE);
+            g_canvas.drawFastHLine(x, peakY, colW, TFT_WHITE);
         }
     }
 
     // 等化器基底線
-    M5.Lcd.drawFastHLine(4, baseY + 2, SCREEN_WIDTH - 8, 0x39E7);
+    g_canvas.drawFastHLine(4, baseY + 2, SCREEN_WIDTH - 8, 0x39E7);
 
     // 3. 底部操作指示 (Y: 195 ~ 238)
-    M5.Lcd.setTextColor(TFT_YELLOW, TFT_BLACK);
-    M5.Lcd.drawCentreString("Btn A: Theme  Btn B: Mode", SCREEN_WIDTH / 2, 198, 1);
-    M5.Lcd.setTextColor(COLOR_CYAN, TFT_BLACK);
-    M5.Lcd.drawCentreString((_mode == SPEC_MODE_AUDIO) ? "[MIC ACTIVE: BUS ISOLATED]" : "[IMU ACTIVE: FULL JOY]", SCREEN_WIDTH / 2, 212, 1);
-    M5.Lcd.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    M5.Lcd.drawCentreString("Hold Btn B: Exit", SCREEN_WIDTH / 2, 226, 1);
+    g_canvas.setTextColor(TFT_YELLOW, TFT_BLACK);
+    g_canvas.drawCentreString("Btn A: Theme  Btn B: Mode", SCREEN_WIDTH / 2, 198, 1);
+    g_canvas.setTextColor(COLOR_CYAN, TFT_BLACK);
+    g_canvas.drawCentreString((_mode == SPEC_MODE_AUDIO) ? "[MIC ACTIVE: BUS ISOLATED]" : "[IMU ACTIVE: FULL JOY]", SCREEN_WIDTH / 2, 212, 1);
+    g_canvas.setTextColor(TFT_DARKGREY, TFT_BLACK);
+    g_canvas.drawCentreString("Hold Btn B: Exit", SCREEN_WIDTH / 2, 226, 1);
+
+    // 一次性將記憶體幀推送到 ST7789v2 螢幕，達成 0 閃爍 60FPS 視覺效果
+    g_canvas.pushSprite(0, 0);
 }
