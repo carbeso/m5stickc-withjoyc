@@ -22,6 +22,8 @@
 #include "scenes/SceneStandby.h"
 #include "scenes/SceneSensorLab.h"
 #include "scenes/SceneSpectrum.h"
+#include "scenes/SceneSand.h"
+#include "scenes/SceneTetris.h"
 
 InputManager input;
 AudioManager audio;
@@ -42,6 +44,8 @@ Scene1A2B scene1A2B;
 SceneStandby sceneStandby;
 SceneSensorLab sceneSensorLab;
 SceneSpectrum sceneSpectrum;
+SceneSand sceneSand;
+SceneTetris sceneTetris;
 
 Scene* currentScene = &sceneMenu;
 
@@ -59,6 +63,8 @@ void switchScene(GameScene target) {
         case SCENE_STANDBY:     currentScene = &sceneStandby; break;
         case SCENE_SENSOR_LAB:  currentScene = &sceneSensorLab; break;
         case SCENE_SPECTRUM:    currentScene = &sceneSpectrum; break;
+        case SCENE_SAND:        currentScene = &sceneSand; break;
+        case SCENE_TETRIS:      currentScene = &sceneTetris; break;
         default:                currentScene = &sceneMenu; break;
     }
     currentScene->clearNextScene();
