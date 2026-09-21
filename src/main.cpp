@@ -21,6 +21,7 @@
 #include "scenes/Scene1A2B.h"
 #include "scenes/SceneStandby.h"
 #include "scenes/SceneSensorLab.h"
+#include "scenes/SceneSpectrum.h"
 
 InputManager input;
 AudioManager audio;
@@ -37,6 +38,7 @@ SceneRPS sceneRPS;
 Scene1A2B scene1A2B;
 SceneStandby sceneStandby;
 SceneSensorLab sceneSensorLab;
+SceneSpectrum sceneSpectrum;
 
 Scene* currentScene = &sceneMenu;
 
@@ -53,6 +55,7 @@ void switchScene(GameScene target) {
         case SCENE_1A2B:        currentScene = &scene1A2B; break;
         case SCENE_STANDBY:     currentScene = &sceneStandby; break;
         case SCENE_SENSOR_LAB:  currentScene = &sceneSensorLab; break;
+        case SCENE_SPECTRUM:    currentScene = &sceneSpectrum; break;
         default:                currentScene = &sceneMenu; break;
     }
     currentScene->clearNextScene();
@@ -81,7 +84,7 @@ void setup() {
     M5.Lcd.setTextColor(COLOR_GOLD, TFT_BLACK);
     M5.Lcd.drawCentreString("FIDGET TOY", SCREEN_WIDTH / 2, 85, 4);
     M5.Lcd.setTextColor(COLOR_CYAN, TFT_BLACK);
-    M5.Lcd.drawCentreString("7-in-1 System", SCREEN_WIDTH / 2, 120, 2);
+    M5.Lcd.drawCentreString("Ultimate Suite", SCREEN_WIDTH / 2, 120, 2);
     audio.playClick();
     led.setColor(255, 200, 50);
 
