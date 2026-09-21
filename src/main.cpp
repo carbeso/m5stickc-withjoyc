@@ -50,6 +50,10 @@ SceneTetris sceneTetris;
 Scene* currentScene = &sceneMenu;
 
 void switchScene(GameScene target) {
+    if (currentScene != nullptr) {
+        currentScene->exit();
+    }
+
     switch (target) {
         case SCENE_MENU:        currentScene = &sceneMenu; break;
         case SCENE_DICE:        currentScene = &sceneDice; break;

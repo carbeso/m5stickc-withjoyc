@@ -14,10 +14,34 @@ InputManager::InputManager()
       joyReleased(false),
       isActivelyShaking(false), isNearlyStill(true), isShaken(false),
       lastActivityTime(0),
+      _busSuspended(false),
       _prevJoyBtn(false), _prevPulledDown(false), _prevPushedUp(false),
       _prevPushedLeft(false), _prevPushedRight(false), _prevJoyEngaged(false),
       _btnBPressedTime(0), _btnBHandled(false),
       _lastAx(0), _lastAy(0), _lastAz(0), _lastActiveShakeTime(0), _lastShakePulseTime(0) {}
+
+void InputManager::setBusSuspended(bool suspended) {
+    _busSuspended = suspended;
+    if (suspended) {
+        joyX = 0;
+        joyY = 0;
+        joyBtnPressed = false;
+        isJoyBtnHeld = false;
+        isJoyPulledDown = false;
+        isJoyPushedUp = false;
+        joyPulledDown = false;
+        joyPushedUp = false;
+        joyPushedLeft = false;
+        joyPushedRight = false;
+        joyReleased = false;
+        _prevJoyBtn = false;
+        _prevPulledDown = false;
+        _prevPushedUp = false;
+        _prevPushedLeft = false;
+        _prevPushedRight = false;
+        _prevJoyEngaged = false;
+    }
+}
 
 void InputManager::clearEvents() {
     joyBtnPressed = false;
@@ -60,54 +84,63 @@ void InputManager::update() {
     joyReleased = false;
     isShaken = false;
 
-    // 1. 讀取搖桿並修正 Y 軸方向
-    joyX = (int8_t)_joyc.getPOSValue(POS_X, _8bit);
-    joyY = -((int8_t)_joyc.getPOSValue(POS_Y, _8bit));
+    if (!_busSuspended) {
+        // 1. 讀取搖桿並修正 Y 軸方向
+        joyX = (int8_t)_joyc.getPOSValue(POS_X, _8bit);
+        joyY = -((int8_t)_joyc.getPOSValue(POS_Y, _8bit));
 
-    if (abs(joyX) < JOY_DEADZONE) joyX = 0;
-    if (abs(joyY) < JOY_DEADZONE) joyY = 0;
+        if (abs(joyX) < JOY_DEADZONE) joyX = 0;
+        if (abs(joyY) < JOY_DEADZONE) joyY = 0;
 
-    // 2. 搖桿中心按鍵狀態
-    bool currJoyBtn = _joyc.getButtonStatus();
-    isJoyBtnHeld = currJoyBtn;
-    if (currJoyBtn && !_prevJoyBtn) joyBtnPressed = true;
-    _prevJoyBtn = currJoyBtn;
+        // 2. 搖桿中心按鍵狀態
+        bool currJoyBtn = _joyc.getButtonStatus();
+        isJoyBtnHeld = currJoyBtn;
+        if (currJoyBtn && !_prevJoyBtn) joyBtnPressed = true;
+        _prevJoyBtn = currJoyBtn;
 
-    // 3. 搖桿持續方向狀態 (具備 Hysteresis 遲滯回差：進入門檻 55，維持門檻 35)
-    if (!_prevPulledDown) {
-        isJoyPulledDown = (joyY > 55);
+        // 3. 搖桿持續方向狀態 (具備 Hysteresis 遲滯回差：進入門檻 55，維持門檻 35)
+        if (!_prevPulledDown) {
+            isJoyPulledDown = (joyY > 55);
+        } else {
+            isJoyPulledDown = (joyY > 35);
+        }
+
+        if (!_prevPushedUp) {
+            isJoyPushedUp = (joyY < -55);
+        } else {
+            isJoyPushedUp = (joyY < -35);
+        }
+
+        bool isLeft = (joyX < -JOY_TRIGGER_PULL);
+        bool isRight = (joyX > JOY_TRIGGER_PULL);
+
+        // 4. 方向邊緣觸發
+        if (isJoyPulledDown && !_prevPulledDown) joyPulledDown = true;
+        _prevPulledDown = isJoyPulledDown;
+
+        if (isJoyPushedUp && !_prevPushedUp) joyPushedUp = true;
+        _prevPushedUp = isJoyPushedUp;
+
+        if (isLeft && !_prevPushedLeft) joyPushedLeft = true;
+        _prevPushedLeft = isLeft;
+
+        if (isRight && !_prevPushedRight) joyPushedRight = true;
+        _prevPushedRight = isRight;
+
+        // 5. 搖桿從推持狀態回彈放開偵測 (Joy Released)
+        bool joyEngaged = (isJoyPulledDown || isJoyPushedUp || isLeft || isRight || isJoyBtnHeld);
+        if (!joyEngaged && _prevJoyEngaged) {
+            joyReleased = true; // 放開搖桿
+        }
+        _prevJoyEngaged = joyEngaged;
     } else {
-        isJoyPulledDown = (joyY > 35);
+        // 匯流排隔離期間：MiniJoyC 搖桿強制歸零，嚴禁向 Wire 發起 I2C 讀寫
+        joyX = 0;
+        joyY = 0;
+        isJoyPulledDown = false;
+        isJoyPushedUp = false;
+        isJoyBtnHeld = false;
     }
-
-    if (!_prevPushedUp) {
-        isJoyPushedUp = (joyY < -55);
-    } else {
-        isJoyPushedUp = (joyY < -35);
-    }
-
-    bool isLeft = (joyX < -JOY_TRIGGER_PULL);
-    bool isRight = (joyX > JOY_TRIGGER_PULL);
-
-    // 4. 方向邊緣觸發
-    if (isJoyPulledDown && !_prevPulledDown) joyPulledDown = true;
-    _prevPulledDown = isJoyPulledDown;
-
-    if (isJoyPushedUp && !_prevPushedUp) joyPushedUp = true;
-    _prevPushedUp = isJoyPushedUp;
-
-    if (isLeft && !_prevPushedLeft) joyPushedLeft = true;
-    _prevPushedLeft = isLeft;
-
-    if (isRight && !_prevPushedRight) joyPushedRight = true;
-    _prevPushedRight = isRight;
-
-    // 5. 搖桿從推持狀態回彈放開偵測 (Joy Released)
-    bool joyEngaged = (isJoyPulledDown || isJoyPushedUp || isLeft || isRight || isJoyBtnHeld);
-    if (!joyEngaged && _prevJoyEngaged) {
-        joyReleased = true; // 放開搖桿
-    }
-    _prevJoyEngaged = joyEngaged;
 
     // 6. 實體按鍵
     isBtnAHeld = M5.BtnA.isPressed();
