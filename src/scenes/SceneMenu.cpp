@@ -24,7 +24,9 @@ const MenuItem MENU_ITEMS[] = {
     {"1A2B PUZZLE", "GUESS 4 DIGITS", COLOR_LIGHT_BLUE, SCENE_1A2B},
     {"STANDBY CLOCK", "RAIN & RTC TIME", 0x4A69, SCENE_STANDBY},
     {"SENSOR LAB", "LEVEL/G/RF/LED", COLOR_CYAN, SCENE_SENSOR_LAB},
-    {"SPECTRUM FFT", "AUDIO & IMU VIBE", TFT_MAGENTA, SCENE_SPECTRUM}
+    {"SPECTRUM FFT", "AUDIO & IMU VIBE", TFT_MAGENTA, SCENE_SPECTRUM},
+    {"GRAVITY SAND", "PHYSICAL SIM", COLOR_GOLD, SCENE_SAND},
+    {"MINI TETRIS", "10x20 CLASSIC", 0x3BFF, SCENE_TETRIS}
 };
 const uint8_t MENU_COUNT = sizeof(MENU_ITEMS) / sizeof(MENU_ITEMS[0]);
 const uint8_t VISIBLE_CARDS = 3; // 一頁顯示 3 張寬敞大卡片，告別文字擠壓
@@ -189,7 +191,9 @@ void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led
         (_selectedIdx == 7) ? 0x00AAFF :
         (_selectedIdx == 8) ? 0x00FF88 :
         (_selectedIdx == 9) ? 0x00D0FF :
-                              0xFF00AA
+        (_selectedIdx == 10) ? 0xFFB300 :
+        (_selectedIdx == 11) ? 0x00E5FF :
+                               0xFF00AA
     );
 }
 

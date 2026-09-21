@@ -40,6 +40,8 @@ enum GameScene {
     SCENE_STANDBY,          // 應用一：待機畫面 (Matrix Rain / 數位時鐘)
     SCENE_SENSOR_LAB,       // 應用二：感測器實驗室 (水平儀/G-Tracker/RF/LED)
     SCENE_SPECTRUM,         // 應用三：頻譜分析儀 (聲音音訊/震動可視化)
+    SCENE_SAND,             // 應用四：重力感應流沙 (Gravity Sand Simulator)
+    SCENE_TETRIS,           // 遊戲九：極簡掌上俄羅斯方塊 (Mini Tetris)
     SCENE_COUNT
 };
 
