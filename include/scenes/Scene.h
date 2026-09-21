@@ -16,6 +16,7 @@ class Scene {
 public:
     virtual ~Scene() {}
     virtual void init() = 0;
+    virtual void exit() {}
     virtual void update(InputManager& input, AudioManager& audio, LedManager& led) = 0;
     virtual void draw() = 0;
     virtual GameScene getSceneId() const = 0;

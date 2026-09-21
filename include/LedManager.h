@@ -18,8 +18,13 @@ public:
     void flash(uint8_t r, uint8_t g, uint8_t b, uint8_t count = 3, uint16_t interval = 80);
     void setRainbowMode(bool enabled) { _rainbowMode = enabled; }
 
+    // 匯流排隔離控制 (用於 GPIO 0 / I2S 麥克風音訊模式)
+    void setBusSuspended(bool suspended);
+    bool isBusSuspended() const { return _busSuspended; }
+
 private:
     M5HatMiniJoyC& _joyc;
+    bool _busSuspended;
     bool _rainbowMode;
     uint8_t _hue;
     uint32_t _lastUpdate;
