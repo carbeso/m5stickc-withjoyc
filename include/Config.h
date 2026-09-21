@@ -21,7 +21,7 @@
 #define JOY_DEADZONE 25      // 搖桿微動靜止死區
 #define JOY_TRIGGER_PULL 80  // 搖桿拉桿觸發門檻 (Y 軸強烈下拉)
 
-// --- 遊戲場景列舉 ---
+// --- 遊戲與應用場景列舉 ---
 enum GameScene {
     SCENE_MENU = 0,         // 全域主選單
     SCENE_DICE,             // 遊戲一：多面骰子盒
@@ -31,6 +31,10 @@ enum GameScene {
     SCENE_SLOT,             // 遊戲五：3x3 搖桿下拉角子老虎機
     SCENE_COIN,             // 遊戲六：1~5枚擲硬幣
     SCENE_RPS,              // 遊戲七：剪刀石頭布 (Rock Paper Scissors)
+    SCENE_1A2B,             // 遊戲八：1A2B 益智猜數字
+    SCENE_STANDBY,          // 應用一：待機畫面 (Matrix Rain / 數位時鐘)
+    SCENE_SENSOR_LAB,       // 應用二：感測器實驗室 (水平儀/G-Tracker/RF/LED)
+    SCENE_SPECTRUM,         // 應用三：頻譜分析儀 (聲音音訊/震動可視化)
     SCENE_COUNT
 };
 

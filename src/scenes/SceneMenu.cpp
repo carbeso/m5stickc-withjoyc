@@ -20,7 +20,8 @@ const MenuItem MENU_ITEMS[] = {
     {"ROULETTE", "EUROPEAN 0-36", COLOR_CYAN, SCENE_ROULETTE},
     {"SLOT 3x3", "PULL JOY DOWN", TFT_GREEN, SCENE_SLOT},
     {"COIN TOSS", "1-5 COINS", COLOR_GOLD, SCENE_COIN},
-    {"ROCK PAPER SCIS", "1-2 HANDS DUEL", 0xFBE0, SCENE_RPS}
+    {"ROCK PAPER SCIS", "1-2 HANDS DUEL", 0xFBE0, SCENE_RPS},
+    {"1A2B PUZZLE", "GUESS 4 DIGITS", COLOR_LIGHT_BLUE, SCENE_1A2B}
 };
 const uint8_t MENU_COUNT = sizeof(MENU_ITEMS) / sizeof(MENU_ITEMS[0]);
 const uint8_t VISIBLE_CARDS = 3; // 一頁顯示 3 張寬敞大卡片，告別文字擠壓
@@ -173,7 +174,8 @@ void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led
         (_selectedIdx == 3) ? 0x00D0FF :
         (_selectedIdx == 4) ? 0x00FF33 :
         (_selectedIdx == 5) ? 0xFFCC00 :
-                              0xFF8800
+        (_selectedIdx == 6) ? 0xFF8800 :
+                              0x00AAFF
     );
 }
 

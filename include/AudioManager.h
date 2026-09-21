@@ -24,6 +24,7 @@ public:
     void playCardDraw();       // 撲克抽牌滑順刷牌聲
     void playBubble();         // 八號球神秘液體冒泡聲
     void playJackpot();        // 老虎機中獎歡慶和弦 (非阻塞)
+    void playWin() { playJackpot(); } // 勝利通關歡慶音效
     void playCrit();           // d20 大成功清脆高音
     void playFumble();         // d20 大失敗低沉哀鳴
 
