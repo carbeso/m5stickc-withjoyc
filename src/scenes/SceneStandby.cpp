@@ -73,8 +73,9 @@ void SceneStandby::update(InputManager& input, AudioManager& audio, LedManager& 
         M5.Rtc.GetDate(&_date);
         _needsRedraw = true;
     }
-    // 1. 退出機制：按下搖桿中鍵、Button B 或長按均可退出回主選單
-    if (input.joyBtnPressed || input.btnBPressed || input.btnBLongPressed) {
+    // 1. 喚醒機制：按下搖桿中鍵、Button B 長按 (或持續按住 400ms) 或劇烈體感甩動時喚醒返回主選單
+    bool exitRequested = (input.joyBtnPressed || input.btnBLongPressed || M5.BtnB.pressedFor(400) || input.isActivelyShaking);
+    if (exitRequested) {
         audio.playClick();
         led.setColor(0, 0, 0);
         _nextScene = SCENE_MENU;
@@ -251,4 +252,8 @@ void SceneStandby::draw() {
 
     // 一次性推送整幀畫面至 ST7789v2 螢幕
     g_canvas.pushSprite(0, 0);
+}
+
+void SceneStandby::exit() {
+    BleSyncManager::getInstance().end();
 }

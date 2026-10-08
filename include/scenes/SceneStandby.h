@@ -28,6 +28,7 @@ public:
     void init() override;
     void update(InputManager& input, AudioManager& audio, LedManager& led) override;
     void draw() override;
+    void exit() override;
     GameScene getSceneId() const override { return SCENE_STANDBY; }
 
 private:
