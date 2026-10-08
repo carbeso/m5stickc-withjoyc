@@ -70,17 +70,30 @@ void SceneStandby::update(InputManager& input, AudioManager& audio, LedManager& 
     // 待機省電核心：關閉底座 SK6812 RGB LED，達成極致低功耗
     led.setColor(0, 0, 0);
 
-    // 1. 全面喚醒機制：按鍵 (JoyBtn/BtnA/BtnB)、推動搖桿 (上下左右) 或體感搖晃時立即喚醒返回主選單
-    bool joyMoved = (input.joyPushedLeft || input.joyPushedRight || input.joyPushedUp || input.joyPulledDown ||
-                     abs(input.joyX) > JOY_DEADZONE || abs(input.joyY) > JOY_DEADZONE);
-    bool anyButtonPressed = (input.joyBtnPressed || input.btnAPressed || input.btnBPressed || input.btnBLongPressed);
-    bool motionAwake = (input.isShaken || input.isActivelyShaking);
-
-    if (anyButtonPressed || joyMoved || motionAwake) {
+    // 1. 喚醒機制：按下搖桿中心鍵 (JoyBtn)、Button B 長按 (或持續按住 400ms) 或劇烈體感甩動時喚醒返回主選單
+    bool exitRequested = (input.joyBtnPressed || input.btnBLongPressed || M5.BtnB.pressedFor(400) || input.isActivelyShaking);
+    if (exitRequested) {
         audio.playClick();
         led.setColor(0, 0, 0);
         _nextScene = SCENE_MENU;
         return;
+    }
+
+    // 2. 搖桿左右推：切換 Matrix 代碼雨與 RTC 時鐘模式
+    if (input.joyPushedLeft || input.joyPushedRight) {
+        _mode = (_mode == STANDBY_MATRIX) ? STANDBY_CLOCK : STANDBY_MATRIX;
+        audio.playTick();
+        _needsRedraw = true;
+        return;
+    }
+
+    // 3. Button A 短按：切換色彩主題 (Matrix 模式)
+    if (input.btnAPressed) {
+        if (_mode == STANDBY_MATRIX) {
+            _themeIdx = (_themeIdx + 1) % 3;
+            audio.playClick();
+            _needsRedraw = true;
+        }
     }
 
     uint32_t now = millis();
@@ -196,9 +209,9 @@ void SceneStandby::drawClock() {
     // 5. 底部操作說明 (Y: 210 ~ 235)
     g_canvas.drawFastHLine(10, 208, SCREEN_WIDTH - 20, 0x2965);
     g_canvas.setTextColor(TFT_YELLOW, TFT_BLACK);
-    g_canvas.drawCentreString("Standby Power Saving Mode", SCREEN_WIDTH / 2, 214, 1);
+    g_canvas.drawCentreString("Joy L/R: Mode | Press Joy: Exit", SCREEN_WIDTH / 2, 214, 1);
     g_canvas.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    g_canvas.drawCentreString("Any Key / Shake to Wake", SCREEN_WIDTH / 2, 226, 1);
+    g_canvas.drawCentreString("Hold Btn B / Shake to Wake", SCREEN_WIDTH / 2, 226, 1);
 }
 
 void SceneStandby::draw() {
