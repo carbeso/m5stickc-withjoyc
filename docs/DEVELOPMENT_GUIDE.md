@@ -9,7 +9,7 @@
 ### 1.1 全域零動態記憶體配置 (Zero Dynamic Allocation)
 - **設計原則**：在嵌入式 ESP32 (Arduino Framework) 環境下，長時間頻繁使用 `new`、`delete` 或 `String` 物件容易造成 Heap 碎片化，導致系統無預警當機（Guru Meditation Error / LoadProhibited）。
 - **實作規範**：
-  - 全數 13 款場景物件（`SceneDice`, `ScenePoker`, `SceneSand`, `SceneTetris` 等）皆於 `src/main.cpp` 中以靜態全域實體（Static Global Instance）宣告，生命週期常駐於 BSS 段。
+  - 全數 16 款場景物件（`SceneDice`, `ScenePoker`, `SceneLevel`, `SceneWifiScanner`, `SceneSand`, `SceneTetris` 等）皆於 `src/main.cpp` 中以靜態全域實體（Static Global Instance）宣告，生命週期常駐於 BSS 段。
   - 字串格式化一律採用 `snprintf` 搭配區域棧緩衝區（Stack Buffer），徹底杜絕記憶體洩漏。
 
 ### 1.2 非阻塞硬體狀態機 (Non-blocking State Machine)
@@ -17,13 +17,14 @@
 - **實作規範**：
   - 所有時序（輪盤巡航、老虎機煞車、流沙推進、俄羅斯方塊下落）皆透過 `millis()` 記錄起始時間與當前時間差（`elapsed`）驅動狀態機演進。
   - 蜂鳴器聲音長度由 `AudioManager::update()` 自行依據時間戳記拉低 GPIO 2 關閉，避免佔用 CPU。
+  - **全域閒置與生命週期**：透過 `InputManager` 管理全域 90 秒無操作自動進入待機休眠，以及待機持續超過 5 分鐘自動執行 `M5.Axp.PowerOff()` 關機保護；任何場景切換前一律觸發 `currentScene->exit()` 統一安全卸載硬體（如 Wi-Fi、I2S 或關閉 LED）。
 
 ### 1.3 全域雙緩衝防閃爍架構 (Double Buffering with `g_canvas`)
 - **設計原則**：傳統直接呼叫 `M5.Lcd.fillScreen(TFT_BLACK)` 抹黑再畫圖會造成強烈人眼頻閃。
 - **實作規範**：
   - 於 `include/Config.h` 宣告全域單例畫布：`extern TFT_eSprite g_canvas;`。
   - 於 `src/main.cpp` 的 `setup()` 中配置全螢幕 Sprite（135×240 RGB565，記憶體約 63.3KB）：`g_canvas.createSprite(SCREEN_WIDTH, SCREEN_HEIGHT);`。
-  - 高頻連續動畫場景（如 `SceneSpectrum`、`SceneSensorLab`、`SceneStandby`、`SceneSand`、`SceneTetris`）全數於 `g_canvas` 上離線繪製，最後以 `g_canvas.pushSprite(0, 0)` 一次性推送至 ST7789v2 顯存。
+  - 高頻連續動畫場景（如 `SceneSpectrum`、`SceneLevel`、`SceneGTracker`、`SceneWifiScanner`、`SceneLedStudio`、`SceneStandby`、`SceneSand`、`SceneTetris`）全數於 `g_canvas` 上離線繪製，最後以 `g_canvas.pushSprite(0, 0)` 一次性推送至 ST7789v2 顯存。
   - 完整繪圖指南與局部更新規範，請參閱專屬文件：[docs/DISPLAY_OPTIMIZATION_GUIDE.md](file:///c:/laragon/www/m5stickc-withjoyc/docs/DISPLAY_OPTIMIZATION_GUIDE.md)。
 
 ---

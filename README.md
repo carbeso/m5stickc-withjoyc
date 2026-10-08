@@ -1,13 +1,13 @@
-# M5StickC Plus & MiniJoyC 13-in-1 Handheld Fidget Toy & Sensor Suite
+# M5StickC Plus & MiniJoyC 16-in-1 Handheld Fidget Toy & Sensor Suite
 
 [English](README.md) | [繁體中文](README.zh-TW.md)
 
-A 13-in-1 interactive handheld fidget toy and sensor exploration suite firmware specifically designed for **M5StickC Plus** paired with the **MiniJoyC HAT** extension dock.
+A 16-in-1 interactive handheld fidget toy and sensor exploration suite firmware specifically designed for **M5StickC Plus** paired with the **MiniJoyC HAT** extension dock.
 Integrating a high-density vertical IPS display with global double-buffering zero-flicker rendering, passive buzzer haptic sound effects, SK6812 RGB ambient lighting, dual-axis analog joystick tactile feedback, MPU6886 motion gesture controls, and a multi-source physical entropy engine to deliver a rich, crisp, responsive, and immersive micro-kinetic fidgeting experience.
 
 ---
 
-## 🎮 13 Fidget Games & Sensor Tools Overview
+## 🎮 16 Fidget Games & Sensor Tools Overview
 
 | # & Name | Screen & Key Features | Primary Controls | Visuals & Physical Dynamics |
 | :--- | :--- | :--- | :--- |
@@ -20,17 +20,20 @@ Integrating a high-density vertical IPS display with global double-buffering zer
 | **7. RPS Duel (Rock-Paper-Scissors)** | Supports 1-Hand Single Player or 2-Hand Split Screen Duel | Joystick L/R to toggle mode; Pull-down hold/Shake to throw | Clean vector silhouettes for Rock ✊, Paper ✋, and Scissors ✌️; rapid cycling while pulled; automatic outcome judgment (P1/P2/TIE) |
 | **8. 1A2B Bulls & Cows** | Classic 4-digit deduction puzzle with duplicate prevention and guess history | Joystick L/R to select digit, U/D to change number; Button A to submit | Guess history scroll, duplicate input guard; hitting 4A triggers golden flash and victory melody |
 | **9. Standby Clock** | Dual-mode screen saver: Matrix code rain and large RTC digital clock | Joystick L/R to switch mode; Button A to cycle color themes | Auto drops backlight to 20% to save battery; 16-column falling green code rain; RTC digital clock with blinking seconds colon |
-| **10. Sensor Lab** | 2D Spirit Level, 3D G-Tracker Radar, 2.4G RF Scanner, and RGB LED Studio | Joystick to navigate tabs & adjust values; Click joystick to scan | Crosshair spirit level bubble, polar G-force trajectory tracker, Wi-Fi AP scanner with RSSI bars, HSV color palette studio |
-| **11. Spectrum FFT** | 64-point Radix-2 FFT audio analyzer and IMU vibration visualizer | Button B to toggle Audio/IMU mode; Button A to switch color palette | 7-band real-time bouncing bars with peak hold falloff; dynamic I2S/I2C bus isolation on GPIO 0 |
-| **12. Gravity Sand Simulator** | 44×80 cellular automata particle physics simulation with up to 1400 sand grains | Joystick/Center click to spawn sand; Button A to switch theme; Shake to scatter | Gravity vector angle fluid movement with 45° angle of repose; violent shake explodes sand outward; zero flicker via double buffering |
-| **13. Mini Tetris** | 10×20 classic Tetris, 7 tetrominoes with NEXT piece preview | Joystick L/R to move, pull down for soft drop; Click for hard drop; A to rotate | Wall-kick rotation support; line-clear green flash feedback; game over and restart logic |
+| **10. Bubble Level** | 3-axis spirit level with dual-ring crosshair calibration | Tilt device to balance bubble | Real-time X/Y tilt angles; crisp tick & green LED when centered; zero RF overhead |
+| **11. G-Tracker** | 10Hz impact force tracker with 5-second peak memory | Center click to reset peak | 50-bar real-time G-force histogram, 3D vector decomposition, shake alert LED |
+| **12. Wi-Fi Scanner** | 2.4GHz RF radar scanner with zero background overhead | Joystick U/D to scroll; Click to scan | 360° rotating radar animation, up to 15 APs with signal bars, channel, encryption; Wi-Fi deinit on exit |
+| **13. LED Workshop** | HSV color studio paired with dual SK6812 RGB LEDs | Joystick L/R for hue, U/D for brightness | Real-time screen color swatch & hex code (#RRGGBB); auto power-off on exit |
+| **14. Spectrum FFT** | 64-point Radix-2 FFT audio analyzer & mic diagnostics | Button B to toggle equalizer / oscilloscope | SPM1423 PDM microphone 16kHz sampling; hardware bus isolation on GPIO 0; sound blast banners |
+| **15. Gravity Sand Simulator** | 44×80 cellular automata particle physics simulation with up to 1400 sand grains | Joystick/Center click to spawn sand; Button A to switch theme; Shake to scatter | Gravity vector angle fluid movement with 45° angle of repose; violent shake explodes sand outward; zero flicker via double buffering |
+| **16. Mini Tetris** | 10×20 classic Tetris, 7 tetrominoes with NEXT piece preview | Joystick L/R to move, pull down for soft drop; Click for hard drop; A to rotate | Wall-kick rotation support; line-clear green flash feedback; game over and restart logic |
 
 ---
 
 ## 🛠️ Hardware Specifications & Pin Configuration
 
 - **Master Unit**: M5StickC Plus
-  - **Core MCU**: ESP32-PICO-D4 (Dual-Core 240MHz, 320KB SRAM, 4MB Flash, 2.4GHz Wi-Fi & BLE)
+  - **Core MCU**: ESP32-PICO-D4 (Dual-Core 240MHz, 320KB SRAM, 4MB Flash, 2.4GHz Wi-Fi)
   - **Display**: 1.14" ST7789v2 IPS TFT LCD (135 × 240 pixels, Portrait Mode), backed by global 63.3KB double-buffering canvas (`g_canvas`)
   - **Power Management**: AXP192 (Built-in Coulomb meter, charging detection, dynamic backlight adjustment)
   - **IMU Sensor**: MPU6886 6-axis Motion Sensor (3-axis Accelerometer + 3-axis Gyroscope)
@@ -42,7 +45,7 @@ Integrating a high-density vertical IPS display with global double-buffering zer
   - **Coprocessor**: STM32F030F4P6 (I2C Address `0x54`, SDA: GPIO 0, SCL: GPIO 26)
   - **Joystick**: Dual-axis 8-bit analog joystick (X: -128~127, Y: -128~127, deadzone set to 25)
   - **Joystick Button**: Center tactile push switch (Hard drop / Confirm)
-  - **Ambient Light**: Built-in 1x SK6812 Full-Color RGB LED
+  - **Ambient Light**: Built-in 2x SK6812 Full-Color RGB LED
   - **Auxiliary Battery**: 200mAh Lithium Polymer Battery (Total combined capacity: 320mAh)
 
 ---
@@ -62,14 +65,14 @@ Integrating a high-density vertical IPS display with global double-buffering zer
       🎲 Dice Box     🃏 Poker     🎱 8-Ball    🎡 Roulette    🎰 Slot Machine
            │              │            │            │              │
            ▼              ▼            ▼            ▼              ▼
-      🪙 Coin Toss   ✌️ RPS Duel    🔢 1A2B     ⏱️ Standby     🔬 Sensor Lab
-                                       ┌────────────┴──────────────┐
-                                       ▼                           ▼
-                                  📊 Spectrum FFT             ⏳ Sand / 🧱 Tetris
+      🪙 Coin Toss   ✌️ RPS Duel    🔢 1A2B     ⏱️ Standby     🧭 Bubble Level
+           │              │            │            │              │
+           ▼              ▼            ▼            ▼              ▼
+      📈 G-Tracker   📡 Wi-Fi Radar 💡 LED Studio 📊 Spectrum FFT ⏳ Sand / 🧱 Tetris
 ```
 
 ### 1. Main Menu Navigation
-- **Joystick Up/Down**: Smoothly scroll through 13 cards (supports seamless loop navigation with dynamic scrollbar indicator).
+- **Joystick Up/Down**: Smoothly scroll through 16 cards (supports seamless loop navigation with dynamic scrollbar indicator).
 - **Button A / Joystick Click**: Confirm and enter selected game or tool.
 - **Joystick Left/Right**: Cycle through screen backlight brightness levels (35% → 70% → 100%).
 - **Short Press Button B**: Toggle global system audio (`[SND ON]` / `[MUTE]`).
@@ -168,7 +171,7 @@ m5stickc-withjoyc/
 ├── lib/                       # Local driver libraries
 │   └── M5HatMiniJoyC/         # MiniJoyC HAT coprocessor I2C driver
 ├── docs/                      # Specifications and manuals
-│   ├── GAME_SPECS.md          # Complete 13-in-1 suite specification
+│   ├── GAME_SPECS.md          # Complete 16-in-1 suite specification
 │   ├── DEVELOPMENT_GUIDE.md   # Architecture, double buffering, and developer guide
 │   ├── DISPLAY_OPTIMIZATION_GUIDE.md # Zero-flicker display optimization guide
 │   └── hardware/              # Hardware specifications and datasheets
