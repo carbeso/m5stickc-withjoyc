@@ -66,6 +66,7 @@ void switchScene(GameScene target) {
     if (currentScene != nullptr) {
         currentScene->exit();
     }
+    led.setColor(0, 0, 0); // 場景切換時確保關閉前一場景殘留之 LED 燈光
 
     if (target == SCENE_STANDBY) {
         standbyEntryTime = millis();

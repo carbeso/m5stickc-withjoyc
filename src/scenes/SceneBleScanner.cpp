@@ -36,6 +36,10 @@ SceneBleScanner::SceneBleScanner()
 
 SceneBleScanner::~SceneBleScanner() {
     stopBleScan();
+    if (_bleInitialized && BLEDevice::getInitialized()) {
+        BLEDevice::deinit(true);
+        _bleInitialized = false;
+    }
     if (s_pScannerCallbacks) {
         delete s_pScannerCallbacks;
         s_pScannerCallbacks = nullptr;
