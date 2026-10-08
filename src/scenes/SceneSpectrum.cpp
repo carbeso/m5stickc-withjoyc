@@ -113,6 +113,11 @@ void SceneSpectrum::teardownAudioI2S() {
     Wire.begin(HAT_I2C_SDA, HAT_I2C_SCL, 400000L);
 }
 
+void SceneSpectrum::exit() {
+    // 場景退出生命週期：安全卸載音訊 I2S 驅動並還原 MiniJoyC I2C 匯流排通訊
+    teardownAudioI2S();
+}
+
 void SceneSpectrum::init() {
     _mode = SPEC_MODE_AUDIO;
     _themeIdx = 0;

@@ -24,6 +24,11 @@ void SceneStandby::initMatrix() {
     }
 }
 
+void SceneStandby::exit() {
+    // 離開待機喚醒返回主選單：還原適中螢幕亮度 (70%) 並關閉 LED
+    M5.Axp.ScreenBreath(70);
+}
+
 void SceneStandby::init() {
     _mode = STANDBY_MATRIX;
     _themeIdx = 0;
@@ -62,15 +67,19 @@ void SceneStandby::updateMatrix() {
 }
 
 void SceneStandby::update(InputManager& input, AudioManager& audio, LedManager& led) {
-    // 1. 退出機制：按下搖桿中鍵、Button B 或長按均可退出回主選單
-    if (input.joyBtnPressed || input.btnBPressed || input.btnBLongPressed) {
+    // 待機省電核心：關閉底座 SK6812 RGB LED，達成極致低功耗
+    led.setColor(0, 0, 0);
+
+    // 1. 喚醒機制：按下搖桿中心鍵 (JoyBtn)、Button B 長按 (或持續按住 400ms) 或劇烈體感甩動時喚醒返回主選單
+    bool exitRequested = (input.joyBtnPressed || input.btnBLongPressed || M5.BtnB.pressedFor(400) || input.isActivelyShaking);
+    if (exitRequested) {
         audio.playClick();
         led.setColor(0, 0, 0);
         _nextScene = SCENE_MENU;
         return;
     }
 
-    // 2. 搖桿左右推：切換 Matrix Rain 與 RTC Clock 模式
+    // 2. 搖桿左右推：切換 Matrix 代碼雨與 RTC 時鐘模式
     if (input.joyPushedLeft || input.joyPushedRight) {
         _mode = (_mode == STANDBY_MATRIX) ? STANDBY_CLOCK : STANDBY_MATRIX;
         audio.playTick();
@@ -78,7 +87,7 @@ void SceneStandby::update(InputManager& input, AudioManager& audio, LedManager& 
         return;
     }
 
-    // 3. Button A：切換色彩主題 (Matrix 模式)
+    // 3. Button A 短按：切換色彩主題 (Matrix 模式)
     if (input.btnAPressed) {
         if (_mode == STANDBY_MATRIX) {
             _themeIdx = (_themeIdx + 1) % 3;
@@ -90,11 +99,6 @@ void SceneStandby::update(InputManager& input, AudioManager& audio, LedManager& 
     uint32_t now = millis();
 
     if (_mode == STANDBY_MATRIX) {
-        // 設定微弱氛圍燈
-        if (_themeIdx == 0) led.setColor(0, 40, 0);
-        else if (_themeIdx == 1) led.setColor(0, 30, 60);
-        else led.setColor(40, 0, 40);
-
         if (now - _lastFrameTime >= 35) {
             _lastFrameTime = now;
             updateMatrix();
@@ -102,7 +106,6 @@ void SceneStandby::update(InputManager& input, AudioManager& audio, LedManager& 
         }
     } else {
         // 時鐘模式：每 500ms 閃爍秒點並檢查時間
-        led.setColor(20, 20, 20);
         if (now - _lastClockCheck >= 500) {
             _lastClockCheck = now;
             _colonBlink = !_colonBlink;
@@ -150,7 +153,7 @@ void SceneStandby::drawMatrix() {
 
     // 底部浮水印提示
     g_canvas.setTextColor(0x4208, TFT_BLACK);
-    g_canvas.drawCentreString("[STANDBY] PRESS JOY TO WAKE", SCREEN_WIDTH / 2, SCREEN_HEIGHT - 12, 1);
+    g_canvas.drawCentreString("[STANDBY] ANY INPUT TO WAKE", SCREEN_WIDTH / 2, SCREEN_HEIGHT - 12, 1);
 }
 
 void SceneStandby::drawClock() {
@@ -206,9 +209,9 @@ void SceneStandby::drawClock() {
     // 5. 底部操作說明 (Y: 210 ~ 235)
     g_canvas.drawFastHLine(10, 208, SCREEN_WIDTH - 20, 0x2965);
     g_canvas.setTextColor(TFT_YELLOW, TFT_BLACK);
-    g_canvas.drawCentreString("Joy L/R: Matrix / Clock", SCREEN_WIDTH / 2, 214, 1);
+    g_canvas.drawCentreString("Joy L/R: Mode | Press Joy: Exit", SCREEN_WIDTH / 2, 214, 1);
     g_canvas.setTextColor(TFT_DARKGREY, TFT_BLACK);
-    g_canvas.drawCentreString("Press Joy to Exit", SCREEN_WIDTH / 2, 226, 1);
+    g_canvas.drawCentreString("Hold Btn B / Shake to Wake", SCREEN_WIDTH / 2, 226, 1);
 }
 
 void SceneStandby::draw() {
