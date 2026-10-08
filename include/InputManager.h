@@ -51,8 +51,13 @@ public:
     M5HatMiniJoyC& getJoyC() { return _joyc; }
     void clearEvents(); // 場景切換時清除殘留按鍵邊緣與狀態
 
+    // 匯流排隔離控制 (用於 GPIO 0 / I2S 麥克風音訊模式)
+    void setBusSuspended(bool suspended);
+    bool isBusSuspended() const { return _busSuspended; }
+
 private:
     M5HatMiniJoyC _joyc;
+    bool _busSuspended;
 
     bool _prevJoyBtn;
     bool _prevPulledDown;

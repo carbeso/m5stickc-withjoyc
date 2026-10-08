@@ -27,6 +27,7 @@ private:
     uint32_t _lastBatCheckTime;
     uint8_t _cachedBatPct;
     bool _cachedIsCharging;
+    uint32_t _entryCooldownUntil;
 
     void applyBrightness();
     void updateBatteryInfo();

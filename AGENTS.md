@@ -18,10 +18,13 @@
   7. `SCENE_RPS`: 剪刀石頭布對決 (1手/2手互搏)
   8. `SCENE_1A2B`: 1A2B 益智猜數字 (4位不重複數字)
   9. `SCENE_STANDBY`: 待機畫面 (駭客任務代碼雨 / RTC 數位時鐘)
-  10. `SCENE_SENSOR_LAB`: 感測器實驗室 (水平儀 / G-Tracker / RF掃描 / LED工坊)
-  11. `SCENE_SPECTRUM`: 頻譜分析儀 (SPM1423 麥克風 64點 FFT / IMU 震動頻譜)
-  12. `SCENE_SAND`: 重力感應流沙 (44x80 細胞自動機，體感甩動爆散)
-  13. `SCENE_TETRIS`: 極簡掌上俄羅斯方塊 (10x20 經典方塊、踢牆、軟硬降)
+  10. `SCENE_LEVEL`: 三軸電子水平儀 (靈敏氣泡與水平聲效)
+  11. `SCENE_G_TRACKER`: G-Force 歷史峰值衝擊追蹤 (10Hz 5秒柱狀圖與向量分析)
+  12. `SCENE_WIFI_SCANNER`: 2.4G Wi-Fi 探測雷達 (動態雷達旋轉與 AP 訊號階梯)
+  13. `SCENE_LED_STUDIO`: RGB LED 調光工作室 (色相環調色與雙 SK6812 預覽)
+  14. `SCENE_SPECTRUM`: 頻譜分析儀 (SPM1423 麥克風 64點 FFT / IMU 震動頻譜)
+  15. `SCENE_SAND`: 重力感應流沙 (44x80 細胞自動機，體感甩動爆散)
+  16. `SCENE_TETRIS`: 極簡掌上俄羅斯方塊 (10x20 經典方塊、踢牆、軟硬降)
 - **核心子系統**：
   - `EntropyManager`: 多維實體熵源管理器 (硬體 RNG + IMU 雜訊 + AXP192 + 時間微擾)
   - `InputManager`: 雙軸搖桿死區、脈衝邊緣、體感甩動偵測狀態機

@@ -25,7 +25,7 @@ void SceneStandby::initMatrix() {
 }
 
 void SceneStandby::exit() {
-    // 離開待機喚醒返回主選單：還原適中螢幕亮度 (70%) 並關閉 LED
+    // 還原適中螢幕亮度 (70%)
     M5.Axp.ScreenBreath(70);
 }
 
@@ -192,20 +192,25 @@ void SceneStandby::drawClock() {
         g_canvas.fillRoundRect(15, 158, progressW, 6, 2, TFT_GREEN);
     }
 
-    // 4. 電量與充電資訊 (Y: 175 ~ 195)
+    // 4. 電量、BLE 與時間同步狀態 (Y: 172 ~ 205)
     float vbat = M5.Axp.GetBatVoltage();
     float vbus = M5.Axp.GetVBusVoltage();
     bool isChg = (vbus > 4.2f);
     char pwrStr[24];
     if (isChg) {
-        snprintf(pwrStr, sizeof(pwrStr), "BAT: %.2fV [CHARGING]", vbat);
+        snprintf(pwrStr, sizeof(pwrStr), "BAT: %.2fV [CHG]", vbat);
         g_canvas.setTextColor(COLOR_CYAN, TFT_BLACK);
     } else {
-        snprintf(pwrStr, sizeof(pwrStr), "BAT: %.2fV [RUNNING]", vbat);
+        snprintf(pwrStr, sizeof(pwrStr), "BAT: %.2fV", vbat);
         g_canvas.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
     }
-    g_canvas.drawCentreString(pwrStr, SCREEN_WIDTH / 2, 178, 1);
+    g_canvas.drawCentreString(pwrStr, SCREEN_WIDTH / 2, 174, 1);
 
+    // 藍牙同步狀態條
+    // RTC 時鐘運作狀態標籤
+    g_canvas.fillRoundRect(12, 188, SCREEN_WIDTH - 24, 16, 3, 0x1183);
+    g_canvas.setTextColor(COLOR_CYAN, 0x1183);
+    g_canvas.drawCentreString("BM8563 RTC ACTIVE", SCREEN_WIDTH / 2, 192, 1);
     // 5. 底部操作說明 (Y: 210 ~ 235)
     g_canvas.drawFastHLine(10, 208, SCREEN_WIDTH - 20, 0x2965);
     g_canvas.setTextColor(TFT_YELLOW, TFT_BLACK);
