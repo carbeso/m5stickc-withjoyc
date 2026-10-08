@@ -99,7 +99,7 @@
 ```bash
 git clone https://github.com/carbeso/m5stickc-withjoyc.git
 cd m5stickc-withjoyc
-git checkout dev  # 建議於 dev 或獨立分支進行功能開發
+git checkout -b feature/<feature-name>  # 建議從 main 切出獨立功能分支進行開發
 ```
 
 ### 3. 編譯與燒錄常用指令
@@ -184,8 +184,8 @@ m5stickc-withjoyc/
 
 ## 📜 開發規範與守則
 
-- **分支紀律**：
-  - 嚴禁直接在 `main` / `master` 分支提交或推送。
-  - 日常功能開發與文件更新必須在 `dev` 或 `feature/...`、`docs/...` 分支執行。
+- **分支紀律 (標準 GitHub Flow)**：
+  - 嚴禁直接在 `main` 分支提交或推送。
+  - 功能開發與文件更新一律自 `main` 切出獨立分支（`feature/...`、`fix/...`、`docs/...`），完成後直接對 `main` 發起 Pull Request。
   - 每次提交前務必於本地執行 `pio run` 驗證 exit code 為 0。
   - 嚴禁使用 `git add .` 或 `git add -A`，提交時精確指定具體檔案路徑。

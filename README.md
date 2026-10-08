@@ -99,7 +99,7 @@ This project uses standard **PlatformIO** for development, dependency management
 ```bash
 git clone https://github.com/carbeso/m5stickc-withjoyc.git
 cd m5stickc-withjoyc
-git checkout dev  # Recommended branch for development
+git checkout -b feature/<feature-name>  # Create a feature branch from main for development
 ```
 
 ### 3. Compilation & Flashing Commands
@@ -184,8 +184,8 @@ m5stickc-withjoyc/
 
 ## 📜 Development Guidelines
 
-- **Branch Discipline**:
-  - Direct commits and pushes to `main` / `master` branches are strictly prohibited.
-  - Development and documentation updates must be conducted on `dev`, `feature/...`, or `docs/...` branches.
+- **Branch Discipline (Standard GitHub Flow)**:
+  - Direct commits and pushes to `main` are strictly prohibited.
+  - Development and documentation updates must be branched from `main` (`feature/...`, `fix/...`, `docs/...`) and submitted via Pull Request directly to `main`.
   - Always run `pio run` locally and verify exit code is 0 before committing.
   - Avoid `git add .`; explicitly specify file paths when staging (e.g., `git add README.md README.zh-TW.md`).
