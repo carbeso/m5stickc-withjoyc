@@ -21,11 +21,10 @@
   10. `SCENE_LEVEL`: 三軸電子水平儀 (靈敏氣泡與水平聲效)
   11. `SCENE_G_TRACKER`: G-Force 歷史峰值衝擊追蹤 (10Hz 5秒柱狀圖與向量分析)
   12. `SCENE_WIFI_SCANNER`: 2.4G Wi-Fi 探測雷達 (動態雷達旋轉與 AP 訊號階梯)
-  13. `SCENE_BLE_SCANNER`: BLE 藍牙設備掃描 (主執行緒安全計時與設備列表)
-  14. `SCENE_LED_STUDIO`: RGB LED 調光工作室 (色相環調色與雙 SK6812 預覽)
-  15. `SCENE_SPECTRUM`: 頻譜分析儀 (SPM1423 麥克風 64點 FFT / IMU 震動頻譜)
-  16. `SCENE_SAND`: 重力感應流沙 (44x80 細胞自動機，體感甩動爆散)
-  17. `SCENE_TETRIS`: 極簡掌上俄羅斯方塊 (10x20 經典方塊、踢牆、軟硬降)
+  13. `SCENE_LED_STUDIO`: RGB LED 調光工作室 (色相環調色與雙 SK6812 預覽)
+  14. `SCENE_SPECTRUM`: 頻譜分析儀 (SPM1423 麥克風 64點 FFT / IMU 震動頻譜)
+  15. `SCENE_SAND`: 重力感應流沙 (44x80 細胞自動機，體感甩動爆散)
+  16. `SCENE_TETRIS`: 極簡掌上俄羅斯方塊 (10x20 經典方塊、踢牆、軟硬降)
 - **核心子系統**：
   - `EntropyManager`: 多維實體熵源管理器 (硬體 RNG + IMU 雜訊 + AXP192 + 時間微擾)
   - `InputManager`: 雙軸搖桿死區、脈衝邊緣、體感甩動偵測狀態機

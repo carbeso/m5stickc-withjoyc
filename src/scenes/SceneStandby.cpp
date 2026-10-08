@@ -9,7 +9,7 @@ const char* WEEK_DAYS[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
 
 SceneStandby::SceneStandby()
     : _mode(STANDBY_MATRIX), _themeIdx(0),
-      _lastFrameTime(0), _lastClockCheck(0), _colonBlink(true), _needsRedraw(true), _lastBleAnimTime(0), _bleAnimStep(0), _syncFeedbackEndTime(0) {}
+      _lastFrameTime(0), _lastClockCheck(0), _colonBlink(true), _needsRedraw(true) {}
 
 void SceneStandby::initMatrix() {
     for (uint8_t i = 0; i < COL_COUNT; i++) {
@@ -25,9 +25,7 @@ void SceneStandby::initMatrix() {
 }
 
 void SceneStandby::exit() {
-    // 1. 離開待機時釋放 BLE 服務與廣播
-    BleSyncManager::getInstance().end();
-    // 2. 還原適中螢幕亮度 (70%)
+    // 還原適中螢幕亮度 (70%)
     M5.Axp.ScreenBreath(70);
 }
 
@@ -43,8 +41,6 @@ void SceneStandby::init() {
 
     // 進入待機降低螢幕背光至 20%，大幅省電護眼
     M5.Axp.ScreenBreath(20);
-    _syncFeedbackEndTime = 0;
-    BleSyncManager::getInstance().begin();
 }
 
 void SceneStandby::updateMatrix() {
@@ -73,16 +69,6 @@ void SceneStandby::updateMatrix() {
 void SceneStandby::update(InputManager& input, AudioManager& audio, LedManager& led) {
     // 待機省電核心：關閉底座 SK6812 RGB LED，達成極致低功耗
     led.setColor(0, 0, 0);
-
-    BleSyncManager::getInstance().update();
-    if (BleSyncManager::getInstance().hasJustSynced()) {
-        audio.playCrit();
-        led.flash(0, 255, 0, 3, 70);
-        _syncFeedbackEndTime = millis() + 3000;
-        M5.Rtc.GetTime(&_time);
-        M5.Rtc.GetDate(&_date);
-        _needsRedraw = true;
-    }
 
     // 1. 喚醒機制：按下搖桿中心鍵 (JoyBtn)、Button B 長按 (或持續按住 400ms) 或劇烈體感甩動時喚醒返回主選單
     bool exitRequested = (input.joyBtnPressed || input.btnBLongPressed || M5.BtnB.pressedFor(400) || input.isActivelyShaking);
@@ -221,22 +207,10 @@ void SceneStandby::drawClock() {
     g_canvas.drawCentreString(pwrStr, SCREEN_WIDTH / 2, 174, 1);
 
     // 藍牙同步狀態條
-    uint32_t now = millis();
-    if (_syncFeedbackEndTime > 0 && now < _syncFeedbackEndTime) {
-        g_canvas.fillRoundRect(12, 188, SCREEN_WIDTH - 24, 16, 3, 0x03E0);
-        g_canvas.setTextColor(TFT_WHITE, 0x03E0);
-        g_canvas.drawCentreString("BLE TIME SYNCED!", SCREEN_WIDTH / 2, 192, 1);
-    } else {
-        bool bleConn = BleSyncManager::getInstance().isConnected();
-        if (bleConn) {
-            g_canvas.fillRoundRect(12, 188, SCREEN_WIDTH - 24, 16, 3, 0x0215);
-            g_canvas.setTextColor(COLOR_CYAN, 0x0215);
-            g_canvas.drawCentreString("BLE CONNECTED", SCREEN_WIDTH / 2, 192, 1);
-        } else {
-            g_canvas.setTextColor(0x7BEF, TFT_BLACK);
-            g_canvas.drawCentreString("BLE: M5StickC-Fidget", SCREEN_WIDTH / 2, 192, 1);
-        }
-    }
+    // RTC 時鐘運作狀態標籤
+    g_canvas.fillRoundRect(12, 188, SCREEN_WIDTH - 24, 16, 3, 0x1183);
+    g_canvas.setTextColor(COLOR_CYAN, 0x1183);
+    g_canvas.drawCentreString("BM8563 RTC ACTIVE", SCREEN_WIDTH / 2, 192, 1);
     // 5. 底部操作說明 (Y: 210 ~ 235)
     g_canvas.drawFastHLine(10, 208, SCREEN_WIDTH - 20, 0x2965);
     g_canvas.setTextColor(TFT_YELLOW, TFT_BLACK);

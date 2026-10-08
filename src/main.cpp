@@ -23,7 +23,6 @@
 #include "scenes/SceneLevel.h"
 #include "scenes/SceneGTracker.h"
 #include "scenes/SceneWifiScanner.h"
-#include "scenes/SceneBleScanner.h"
 #include "scenes/SceneLedStudio.h"
 #include "scenes/SceneSpectrum.h"
 #include "scenes/SceneSand.h"
@@ -49,7 +48,6 @@ SceneStandby sceneStandby;
 SceneLevel sceneLevel;
 SceneGTracker sceneGTracker;
 SceneWifiScanner sceneWifiScanner;
-SceneBleScanner sceneBleScanner;
 SceneLedStudio sceneLedStudio;
 SceneSpectrum sceneSpectrum;
 SceneSand sceneSand;
@@ -85,7 +83,6 @@ void switchScene(GameScene target) {
         case SCENE_LEVEL:        currentScene = &sceneLevel; break;
         case SCENE_G_TRACKER:    currentScene = &sceneGTracker; break;
         case SCENE_WIFI_SCANNER: currentScene = &sceneWifiScanner; break;
-        case SCENE_BLE_SCANNER:  currentScene = &sceneBleScanner; break;
         case SCENE_LED_STUDIO:   currentScene = &sceneLedStudio; break;
         case SCENE_SPECTRUM:     currentScene = &sceneSpectrum; break;
         case SCENE_SAND:         currentScene = &sceneSand; break;
