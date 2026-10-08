@@ -151,7 +151,7 @@ void InputManager::update() {
         _btnBHandled = false;
     }
     if (M5.BtnB.isPressed()) {
-        if (!_btnBHandled && (millis() - _btnBPressedTime >= 500)) {
+        if (!_btnBHandled && (millis() - _btnBPressedTime >= 400)) {
             btnBLongPressed = true;
             _btnBHandled = true;
         }

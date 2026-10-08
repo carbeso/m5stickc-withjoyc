@@ -131,10 +131,19 @@ void SceneSpectrum::teardownAudioI2S() {
     i2s_driver_uninstall(I2S_NUM_0);
     _isI2SActive = false;
 
-    // 2. 重新初始化頂部 HAT I2C 匯流排 (400kHz)，還原 MiniJoyC 正常通訊
-    Wire.begin(HAT_I2C_SDA, HAT_I2C_SCL, 400000L);
+    // 2. 徹底重置 GPIO 0 與 GPIO 26，防止 I2S 矩陣殘留並確保引腳恢復上拉
+    gpio_reset_pin(GPIO_NUM_0);
+    gpio_reset_pin(GPIO_NUM_26);
+    pinMode(PIN_MIC_CLK, INPUT_PULLUP);
+    pinMode(HAT_I2C_SCL, INPUT_PULLUP);
+    delay(20);
 
-    // 3. 解除全域匯流排掛起
+    // 3. 重新初始化頂部 HAT I2C 匯流排 (400kHz)，加入 50ms 超時保護防止死鎖
+    Wire.begin(HAT_I2C_SDA, HAT_I2C_SCL, 400000L);
+    Wire.setTimeOut(50);
+    delay(10);
+
+    // 4. 解除全域匯流排掛起
     input.setBusSuspended(false);
     led.setBusSuspended(false);
 }
@@ -294,8 +303,9 @@ void SceneSpectrum::computeFFT() {
 }
 
 void SceneSpectrum::update(InputManager& input, AudioManager& audio, LedManager& led) {
-    // 1. Button B 長按：安全退出並釋放 I2S 還原匯流排
-    if (input.btnBLongPressed) {
+    // 1. 安全退出返回主選單：Button B 長按 (或持續按住 400ms) 或 Button A 長按均可觸發
+    bool requestExit = input.btnBLongPressed || M5.BtnB.pressedFor(400) || M5.BtnA.pressedFor(600);
+    if (requestExit) {
         audio.playClick();
         teardownAudioI2S();
         _nextScene = SCENE_MENU;
