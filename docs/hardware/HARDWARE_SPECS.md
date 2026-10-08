@@ -273,7 +273,7 @@ M5StickC Plus 內部焊接了 MPU6886 六軸感測器，透過 `M5.Imu.getAccelD
 float gx = -ax; // 向右傾斜 (ax < 0) 時，gx 變為正值，推動小球/沙粒向右移動 (+X)
 float gy = ay;  // 機身正立 (ay > 0) 時，gy 為正值，推動小球/沙粒向下墜落 (+Y)
 ```
-- **氣泡水平儀 (Bubble Level - `SceneSensorLab`)**：
+- **氣泡水平儀 (Bubble Level - `SceneLevel`)**：
   ```cpp
   // 氣泡向傾斜方向滑動
   _targetBubbleX = -ax * 42.0f;

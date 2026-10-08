@@ -1,6 +1,6 @@
 # M5StickC-Plus 與 MiniJoyC 紓壓玩具專案規範 (AGENTS.md)
 
-本專案致力於利用 **M5StickC Plus** 搭配 **MiniJoyC HAT** 擴充底座，打造一款具備豐富觸覺、聽覺、視覺互動之掌上型「13 合 1 紓壓玩具與感測工具旗艦套件 (Fidget & Sensor Suite)」。
+本專案致力於利用 **M5StickC Plus** 搭配 **MiniJoyC HAT** 擴充底座，打造一款具備豐富觸覺、聽覺、視覺互動之掌上型「16 合 1 紓壓玩具與感測工具旗艦套件 (Fidget & Sensor Suite)」。
 
 ---
 
@@ -8,7 +8,7 @@
 - **硬體核心**：M5StickC Plus (ESP32-PICO-D4 @ 240MHz, 320KB RAM, 4MB Flash)
 - **擴充底座**：M5Stack Hat Mini JoyC (STM32F030F4P6, I2C `0x54`, SDA: GPIO 0, SCL: GPIO 26)
 - **螢幕與渲染**：1.14" ST7789v2 IPS LCD (135 × 240 直向)，全域雙緩衝畫布 `extern TFT_eSprite g_canvas;` (63.3KB 記憶體)
-- **現有 13 大場景清單**：
+- **現有 16 大場景清單**：
   1. `SCENE_DICE`: 多面骰子盒 (1d4 ~ 6d100)
   2. `SCENE_POKER`: 極簡幸運撲克 (52+2張，銷牌/單抽)
   3. `SCENE_EIGHT_BALL`: 神秘八號球 (維基百科 20 款解答)
