@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file SceneSensorLab.cpp
  * @brief 感測器實驗室 (Sensor Lab) 儀表板實作：水平儀、G-Force 追蹤、2.4G Wi-Fi 掃描、BLE 藍牙掃描與 LED 工作室
  */
@@ -57,6 +57,8 @@ private:
 };
 
 static LabBleCallbacks* s_pBleCallbacks = nullptr;
+static SceneSensorLab* s_currentLabInstance = nullptr;
+static portMUX_TYPE s_bleMux = portMUX_INITIALIZER_UNLOCKED;
 
 SceneSensorLab::SceneSensorLab()
     : _currentTab(TAB_LEVEL), _needsRedraw(true), _lastSampleTime(0),
@@ -473,6 +475,7 @@ void SceneSensorLab::drawRfScanner() {
 void SceneSensorLab::onBleDeviceFound(const char* name, const char* addr, int rssi) {
     if (!addr) return;
 
+    portENTER_CRITICAL(&s_bleMux);
     for (uint8_t i = 0; i < _foundBleDevs; i++) {
         if (strncmp(_bleDevs[i].address, addr, sizeof(_bleDevs[i].address)) == 0) {
             _bleDevs[i].rssi = (int16_t)rssi;
@@ -480,6 +483,7 @@ void SceneSensorLab::onBleDeviceFound(const char* name, const char* addr, int rs
                 name && name[0] != '\0') {
                 snprintf(_bleDevs[i].name, sizeof(_bleDevs[i].name), "%s", name);
             }
+            portEXIT_CRITICAL(&s_bleMux);
             return;
         }
     }
@@ -494,14 +498,38 @@ void SceneSensorLab::onBleDeviceFound(const char* name, const char* addr, int rs
         _bleDevs[_foundBleDevs].rssi = (int16_t)rssi;
         _foundBleDevs++;
     }
+    portEXIT_CRITICAL(&s_bleMux);
+}
+
+void SceneSensorLab::onBleScanComplete(BLEScanResults results) {
+    if (s_currentLabInstance) {
+        s_currentLabInstance->_isScanningBle = false;
+
+        // 依 RSSI 降冪排序 (最強設備置頂)
+        portENTER_CRITICAL(&s_bleMux);
+        for (uint8_t i = 0; i < s_currentLabInstance->_foundBleDevs; i++) {
+            for (uint8_t j = i + 1; j < s_currentLabInstance->_foundBleDevs; j++) {
+                if (s_currentLabInstance->_bleDevs[j].rssi > s_currentLabInstance->_bleDevs[i].rssi) {
+                    BleScanResult tmp = s_currentLabInstance->_bleDevs[i];
+                    s_currentLabInstance->_bleDevs[i] = s_currentLabInstance->_bleDevs[j];
+                    s_currentLabInstance->_bleDevs[j] = tmp;
+                }
+            }
+        }
+        portEXIT_CRITICAL(&s_bleMux);
+        s_currentLabInstance->_needsRedraw = true;
+    }
 }
 
 void SceneSensorLab::startBleScan() {
     stopWifiScan(); // Wi-Fi 與 BLE 互斥共用射頻
+    delay(50);      // 射頻硬體狀態機轉換保護
+
     if (!_bleInitialized) {
         BLEDevice::init("M5StickC-Lab");
         _bleInitialized = true;
     }
+    s_currentLabInstance = this;
     _isScanningBle = true;
     _foundBleDevs = 0;
     _bleScrollOffset = 0;
@@ -512,33 +540,20 @@ void SceneSensorLab::startBleScan() {
         if (!s_pBleCallbacks) {
             s_pBleCallbacks = new LabBleCallbacks(this);
         }
-        pScan->setAdvertisedDeviceCallbacks(s_pBleCallbacks);
+        pScan->setAdvertisedDeviceCallbacks(s_pBleCallbacks, false);
         pScan->setActiveScan(true);
         pScan->setInterval(100);
         pScan->setWindow(99);
-        pScan->clearResults();
-        pScan->start(0, nullptr, false);
+        pScan->start(3, SceneSensorLab::onBleScanComplete, false);
     }
 }
 
 void SceneSensorLab::stopBleScan() {
     if (_isScanningBle) {
+        _isScanningBle = false;
         BLEScan* pScan = BLEDevice::getScan();
         if (pScan) {
             pScan->stop();
-            pScan->clearResults();
-        }
-        _isScanningBle = false;
-
-        // 依 RSSI 降冪排序 (最強設備置頂)
-        for (uint8_t i = 0; i < _foundBleDevs; i++) {
-            for (uint8_t j = i + 1; j < _foundBleDevs; j++) {
-                if (_bleDevs[j].rssi > _bleDevs[i].rssi) {
-                    BleScanResult tmp = _bleDevs[i];
-                    _bleDevs[i] = _bleDevs[j];
-                    _bleDevs[j] = tmp;
-                }
-            }
         }
     }
 }
@@ -553,7 +568,8 @@ void SceneSensorLab::updateBleScanner(InputManager& input, AudioManager& audio) 
 
     if (_isScanningBle) {
         _needsRedraw = true;
-        if (millis() - _bleScanStartTime >= 3200) {
+        // 4 秒超時防呆保護
+        if (millis() - _bleScanStartTime >= 4000) {
             stopBleScan();
             audio.playTick();
             _needsRedraw = true;
@@ -801,4 +817,9 @@ void SceneSensorLab::draw() {
 
     // 統一推送到 ST7789v2 螢幕
     g_canvas.pushSprite(0, 0);
+}
+
+void SceneSensorLab::exit() {
+    stopWifiScan();
+    stopBleScan();
 }

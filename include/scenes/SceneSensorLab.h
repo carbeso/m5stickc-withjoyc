@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file SceneSensorLab.h
  * @brief 感測器實驗室 (Sensor Lab) 儀表板標頭檔
  * @details 整合三軸水平儀、5 秒 G-Force 歷史峰值紀錄器、2.4G Wi-Fi 掃描儀、BLE 藍牙掃描儀與 RGB LED 調光工作室
@@ -41,10 +41,12 @@ public:
     void init() override;
     void update(InputManager& input, AudioManager& audio, LedManager& led) override;
     void draw() override;
+    void exit() override;
     GameScene getSceneId() const override { return SCENE_SENSOR_LAB; }
 
-    // BLE 設備發現回呼
+    // BLE 設備發現與掃描完成回呼
     void onBleDeviceFound(const char* name, const char* addr, int rssi);
+    static void onBleScanComplete(BLEScanResults results);
 
 private:
     void updateLevel(InputManager& input, AudioManager& audio);
