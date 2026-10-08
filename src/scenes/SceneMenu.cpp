@@ -83,6 +83,7 @@ void SceneMenu::init() {
     _redrawHeader = true;
     _redrawCards = true;
     _nextScene = SCENE_COUNT;
+    _entryCooldownUntil = millis() + 400; // 進入主選單後 400ms 內冷卻，防止前一場景放開按鍵時誤觸再次進入
     applyBrightness();
     updateBatteryInfo();
     _lastBatCheckTime = millis();
@@ -154,11 +155,13 @@ void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led
         _redrawCards = true;
     }
 
-    // 5. 按下中心鍵或 Button A：確認進入遊戲
-    if (input.joyBtnPressed || input.btnAPressed) {
-        audio.playClick();
-        _nextScene = MENU_ITEMS[_selectedIdx].scene;
-        return;
+    // 5. 按下中心鍵或 Button A：確認進入遊戲 (需過冷卻時間避免返回時誤觸)
+    if (millis() >= _entryCooldownUntil) {
+        if (input.joyBtnPressed || input.btnAPressed) {
+            audio.playClick();
+            _nextScene = MENU_ITEMS[_selectedIdx].scene;
+            return;
+        }
     }
 
     // 6. 每 1500ms 定時更新電量百分比 (僅局部刷新頂部狀態列)
