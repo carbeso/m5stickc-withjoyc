@@ -62,7 +62,6 @@ void switchScene(GameScene target) {
     if (target == SCENE_STANDBY) {
         standbyEntryTime = millis();
     }
-
     switch (target) {
         case SCENE_MENU:        currentScene = &sceneMenu; break;
         case SCENE_DICE:        currentScene = &sceneDice; break;
