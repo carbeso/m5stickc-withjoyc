@@ -158,8 +158,8 @@ void Scene1A2B::update(InputManager& input, AudioManager& audio, LedManager& led
             _lastNavTime = now;
             _needsRedraw = true;
         } else if (absY > 45 && absY > absX) {
-            // 上下滾動數字 (0~9 循環)
-            if (input.joyY > 0) {
+            // 上下滾動數字 (0~9 循環：joyY < 0 向上推數字遞增，joyY > 0 向下推數字遞減)
+            if (input.joyY < 0) {
                 _guess[_cursor] = (_guess[_cursor] + 1) % 10;
             } else {
                 _guess[_cursor] = (_guess[_cursor] + 9) % 10;

@@ -6,9 +6,17 @@
 #include "LedManager.h"
 
 LedManager::LedManager(M5HatMiniJoyC& joyc)
-    : _joyc(joyc), _rainbowMode(false), _hue(0), _lastUpdate(0),
+    : _joyc(joyc), _busSuspended(false), _rainbowMode(false), _hue(0), _lastUpdate(0),
       _flashing(false), _flashR(0), _flashG(0), _flashB(0),
       _flashCount(0), _flashInterval(80), _nextFlashTime(0), _flashState(false) {}
+
+void LedManager::setBusSuspended(bool suspended) {
+    _busSuspended = suspended;
+    if (suspended) {
+        _flashing = false;
+        _rainbowMode = false;
+    }
+}
 
 uint32_t LedManager::hsvToRgb(uint8_t h, uint8_t s, uint8_t v) {
     uint8_t r = 0, g = 0, b = 0;
@@ -31,18 +39,21 @@ uint32_t LedManager::hsvToRgb(uint8_t h, uint8_t s, uint8_t v) {
 }
 
 void LedManager::setColor(uint8_t r, uint8_t g, uint8_t b) {
+    if (_busSuspended) return;
     _rainbowMode = false;
     _flashing = false;
     _joyc.setLEDColor(((uint32_t)r << 16) | ((uint32_t)g << 8) | b);
 }
 
 void LedManager::setHexColor(uint32_t rgb) {
+    if (_busSuspended) return;
     _rainbowMode = false;
     _flashing = false;
     _joyc.setLEDColor(rgb);
 }
 
 void LedManager::flash(uint8_t r, uint8_t g, uint8_t b, uint8_t count, uint16_t interval) {
+    if (_busSuspended) return;
     _flashing = true;
     _rainbowMode = false;
     _flashR = r;
@@ -55,6 +66,7 @@ void LedManager::flash(uint8_t r, uint8_t g, uint8_t b, uint8_t count, uint16_t 
 }
 
 void LedManager::update() {
+    if (_busSuspended) return;
     uint32_t now = millis();
 
     // 處理爆閃

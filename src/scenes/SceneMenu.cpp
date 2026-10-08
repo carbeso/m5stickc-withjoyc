@@ -23,8 +23,13 @@ const MenuItem MENU_ITEMS[] = {
     {"ROCK PAPER SCIS", "1-2 HANDS DUEL", 0xFBE0, SCENE_RPS},
     {"1A2B PUZZLE", "GUESS 4 DIGITS", COLOR_LIGHT_BLUE, SCENE_1A2B},
     {"STANDBY CLOCK", "RAIN & RTC TIME", 0x4A69, SCENE_STANDBY},
-    {"SENSOR LAB", "LEVEL/G/RF/LED", COLOR_CYAN, SCENE_SENSOR_LAB},
-    {"SPECTRUM FFT", "AUDIO & IMU VIBE", TFT_MAGENTA, SCENE_SPECTRUM}
+    {"BUBBLE LEVEL", "3-AXIS SPIRIT", COLOR_CYAN, SCENE_LEVEL},
+    {"G-TRACKER", "IMPACT PEAK G", TFT_ORANGE, SCENE_G_TRACKER},
+    {"WIFI SCANNER", "2.4G RADAR AP", TFT_GREEN, SCENE_WIFI_SCANNER},
+    {"LED WORKSHOP", "RGB HUE & BRT", TFT_MAGENTA, SCENE_LED_STUDIO},
+    {"SPECTRUM FFT", "AUDIO & MIC TEST", TFT_MAGENTA, SCENE_SPECTRUM},
+    {"GRAVITY SAND", "PHYSICAL SIM", COLOR_GOLD, SCENE_SAND},
+    {"MINI TETRIS", "10x20 CLASSIC", 0x3BFF, SCENE_TETRIS}
 };
 const uint8_t MENU_COUNT = sizeof(MENU_ITEMS) / sizeof(MENU_ITEMS[0]);
 const uint8_t VISIBLE_CARDS = 3; // 一頁顯示 3 張寬敞大卡片，告別文字擠壓
@@ -81,6 +86,7 @@ void SceneMenu::init() {
     _redrawHeader = true;
     _redrawCards = true;
     _nextScene = SCENE_COUNT;
+    _entryCooldownUntil = millis() + 400; // 進入主選單後 400ms 內冷卻，防止前一場景放開按鍵時誤觸再次進入
     applyBrightness();
     updateBatteryInfo();
     _lastBatCheckTime = millis();
@@ -152,11 +158,13 @@ void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led
         _redrawCards = true;
     }
 
-    // 5. 按下中心鍵或 Button A：確認進入遊戲
-    if (input.joyBtnPressed || input.btnAPressed) {
-        audio.playClick();
-        _nextScene = MENU_ITEMS[_selectedIdx].scene;
-        return;
+    // 5. 按下中心鍵或 Button A：確認進入遊戲 (需過冷卻時間避免返回時誤觸)
+    if (millis() >= _entryCooldownUntil) {
+        if (input.joyBtnPressed || input.btnAPressed) {
+            audio.playClick();
+            _nextScene = MENU_ITEMS[_selectedIdx].scene;
+            return;
+        }
     }
 
     // 6. 每 1500ms 定時更新電量百分比 (僅局部刷新頂部狀態列)
@@ -171,11 +179,7 @@ void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led
         }
     }
 
-    // 7. 全域無操作閒置 60 秒：自動進入待機休眠
-    if (now - input.lastActivityTime > 60000) {
-        _nextScene = SCENE_STANDBY;
-        return;
-    }
+    // 全域閒置休眠邏輯已由 main.cpp 統一以 90 秒判定管理
 
     // 設定 LED 燈色配合當前選中遊戲
     led.setHexColor(
@@ -189,7 +193,9 @@ void SceneMenu::update(InputManager& input, AudioManager& audio, LedManager& led
         (_selectedIdx == 7) ? 0x00AAFF :
         (_selectedIdx == 8) ? 0x00FF88 :
         (_selectedIdx == 9) ? 0x00D0FF :
-                              0xFF00AA
+        (_selectedIdx == 10) ? 0xFFB300 :
+        (_selectedIdx == 11) ? 0x00E5FF :
+                               0xFF00AA
     );
 }
 

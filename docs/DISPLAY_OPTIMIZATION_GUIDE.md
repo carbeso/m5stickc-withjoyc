@@ -27,7 +27,7 @@
 
 ## 2. 解決方案 A：全域雙緩衝機制 (Double Buffering with TFT_eSprite)
 
-適用於**高頻連續動畫、即時物理運算、即時音訊頻譜、粒子效果**等場景（例如：`SceneSpectrum`、`SceneSensorLab`、`SceneStandby` 矩陣雨、`SceneSlot` 滾輪）。
+適用於**高頻連續動畫、即時物理運算、即時音訊頻譜、粒子效果**等場景（例如：`SceneSpectrum`、`SceneLevel`、`SceneWifiScanner`、`SceneSand`、`SceneTetris`、`SceneStandby` 矩陣雨、`SceneSlot` 滾輪）。
 
 ### 2.1 架構設計：全域單例畫布 (Zero-Fragmentation Canvas)
 為避免各場景自行 `malloc` / `new` 造成記憶體碎片化，本專案在全域配置單一畫布實例：

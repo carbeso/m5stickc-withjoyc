@@ -20,8 +20,13 @@
 #include "scenes/SceneRPS.h"
 #include "scenes/Scene1A2B.h"
 #include "scenes/SceneStandby.h"
-#include "scenes/SceneSensorLab.h"
+#include "scenes/SceneLevel.h"
+#include "scenes/SceneGTracker.h"
+#include "scenes/SceneWifiScanner.h"
+#include "scenes/SceneLedStudio.h"
 #include "scenes/SceneSpectrum.h"
+#include "scenes/SceneSand.h"
+#include "scenes/SceneTetris.h"
 
 InputManager input;
 AudioManager audio;
@@ -40,26 +45,49 @@ SceneCoin sceneCoin;
 SceneRPS sceneRPS;
 Scene1A2B scene1A2B;
 SceneStandby sceneStandby;
-SceneSensorLab sceneSensorLab;
+SceneLevel sceneLevel;
+SceneGTracker sceneGTracker;
+SceneWifiScanner sceneWifiScanner;
+SceneLedStudio sceneLedStudio;
 SceneSpectrum sceneSpectrum;
+SceneSand sceneSand;
+SceneTetris sceneTetris;
+
+// 電源管理與待機保護常數
+static const uint32_t IDLE_TIMEOUT_MS = 90000;       // 90 秒無操作自動進入待機休眠
+static const uint32_t STANDBY_SHUTDOWN_MS = 300000;  // 待機持續超過 5 分鐘自動關機保護電池
+static uint32_t standbyEntryTime = 0;               // 進入待機之時間戳記
 
 Scene* currentScene = &sceneMenu;
 
 void switchScene(GameScene target) {
+    if (currentScene != nullptr) {
+        currentScene->exit();
+    }
+    led.setColor(0, 0, 0); // 場景切換時確保關閉前一場景殘留之 LED 燈光
+
+    if (target == SCENE_STANDBY) {
+        standbyEntryTime = millis();
+    }
     switch (target) {
-        case SCENE_MENU:        currentScene = &sceneMenu; break;
-        case SCENE_DICE:        currentScene = &sceneDice; break;
-        case SCENE_POKER:       currentScene = &scenePoker; break;
-        case SCENE_EIGHT_BALL:  currentScene = &sceneEightBall; break;
-        case SCENE_ROULETTE:    currentScene = &sceneRoulette; break;
-        case SCENE_SLOT:        currentScene = &sceneSlot; break;
-        case SCENE_COIN:        currentScene = &sceneCoin; break;
-        case SCENE_RPS:         currentScene = &sceneRPS; break;
-        case SCENE_1A2B:        currentScene = &scene1A2B; break;
-        case SCENE_STANDBY:     currentScene = &sceneStandby; break;
-        case SCENE_SENSOR_LAB:  currentScene = &sceneSensorLab; break;
-        case SCENE_SPECTRUM:    currentScene = &sceneSpectrum; break;
-        default:                currentScene = &sceneMenu; break;
+        case SCENE_MENU:         currentScene = &sceneMenu; break;
+        case SCENE_DICE:         currentScene = &sceneDice; break;
+        case SCENE_POKER:        currentScene = &scenePoker; break;
+        case SCENE_EIGHT_BALL:   currentScene = &sceneEightBall; break;
+        case SCENE_ROULETTE:     currentScene = &sceneRoulette; break;
+        case SCENE_SLOT:         currentScene = &sceneSlot; break;
+        case SCENE_COIN:         currentScene = &sceneCoin; break;
+        case SCENE_RPS:          currentScene = &sceneRPS; break;
+        case SCENE_1A2B:         currentScene = &scene1A2B; break;
+        case SCENE_STANDBY:      currentScene = &sceneStandby; break;
+        case SCENE_LEVEL:        currentScene = &sceneLevel; break;
+        case SCENE_G_TRACKER:    currentScene = &sceneGTracker; break;
+        case SCENE_WIFI_SCANNER: currentScene = &sceneWifiScanner; break;
+        case SCENE_LED_STUDIO:   currentScene = &sceneLedStudio; break;
+        case SCENE_SPECTRUM:     currentScene = &sceneSpectrum; break;
+        case SCENE_SAND:         currentScene = &sceneSand; break;
+        case SCENE_TETRIS:       currentScene = &sceneTetris; break;
+        default:                 currentScene = &sceneMenu; break;
     }
     currentScene->clearNextScene();
     input.clearEvents(); // 清除上一場景之殘留按鍵與手勢邊緣
@@ -112,6 +140,23 @@ void loop() {
     GameScene next = currentScene->getNextScene();
     if (next != SCENE_COUNT) {
         switchScene(next);
+    } else {
+        // 全域電源管理邏輯
+        uint32_t now = millis();
+        if (currentScene->getSceneId() != SCENE_STANDBY) {
+            // 任何遊戲或應用場景中：超過 90 秒無任何操作，自動切換至 SCENE_STANDBY 待機畫面
+            if (now - input.lastActivityTime >= IDLE_TIMEOUT_MS) {
+                switchScene(SCENE_STANDBY);
+            }
+        } else {
+            // 待機畫面中：若持續累積待機超過 5 分鐘無任何喚醒操作，自動關機以保護電池
+            if (now - standbyEntryTime >= STANDBY_SHUTDOWN_MS) {
+                // 關閉周邊與螢幕背光後由 AXP192 執行安全關機
+                led.setColor(0, 0, 0);
+                M5.Axp.ScreenBreath(0);
+                M5.Axp.PowerOff();
+            }
+        }
     }
 
     audio.update();

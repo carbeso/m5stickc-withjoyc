@@ -9,7 +9,7 @@
 #include "EntropyManager.h"
 
 enum StandbyMode {
-    STANDBY_MATRIX = 0,     // 黑客帝國代碼雨動態螢幕保護
+    STANDBY_MATRIX = 0,     // 駭客任務代碼雨動態螢幕保護
     STANDBY_CLOCK           // 桌面 RTC 數位時鐘
 };
 
@@ -25,6 +25,7 @@ class SceneStandby : public Scene {
 public:
     SceneStandby();
     void init() override;
+    void exit() override;
     void update(InputManager& input, AudioManager& audio, LedManager& led) override;
     void draw() override;
     GameScene getSceneId() const override { return SCENE_STANDBY; }
