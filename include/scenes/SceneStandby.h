@@ -7,6 +7,7 @@
 
 #include "Scene.h"
 #include "EntropyManager.h"
+#include "BleSyncManager.h"
 
 enum StandbyMode {
     STANDBY_MATRIX = 0,     // 駭客任務代碼雨動態螢幕保護
@@ -28,6 +29,7 @@ public:
     void exit() override;
     void update(InputManager& input, AudioManager& audio, LedManager& led) override;
     void draw() override;
+    void exit() override;
     GameScene getSceneId() const override { return SCENE_STANDBY; }
 
 private:
@@ -51,4 +53,7 @@ private:
     bool _colonBlink;
 
     bool _needsRedraw;
+    uint32_t _lastBleAnimTime;
+    uint8_t _bleAnimStep;
+    uint32_t _syncFeedbackEndTime;
 };

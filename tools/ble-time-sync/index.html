@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>M5StickC Plus BLE 時間同步工具</title>
+  <style>
+    :root {
+      --bg-color: #0b0f19;
+      --card-bg: #161f30;
+      --border-color: #243552;
+      --primary: #00e5ff;
+      --primary-hover: #00b4d8;
+      --success: #00e676;
+      --danger: #ff5252;
+      --text: #f0f6fc;
+      --text-muted: #8b9bb4;
+      --font-mono: SFMono-Regular, Consolas, monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-color); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 1.5rem;
+    }
+    .container {
+      max-width: 520px; width: 100%; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 2rem; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    .header { text-align: center; margin-bottom: 2rem; }
+    .header .badge {
+      display: inline-block; padding: 0.25rem 0.75rem; background: rgba(0, 229, 255, 0.1); color: var(--primary); border-radius: 9999px; font-size: 0.8rem; font-weight: 600; margin-bottom: 0.5rem;
+    }
+    .header h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .header p { color: var(--text-muted); font-size: 0.9rem; }
+    .clock-card { background: #0d1322; border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; text-align: center; margin-bottom: 1.5rem; }
+    .clock-card .label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem; }
+    .clock-card .time { font-family: var(--font-mono); font-size: 2.2rem; font-weight: 700; color: var(--primary); }
+    .clock-card .date { font-size: 0.9rem; color: var(--text-muted); margin-top: 0.25rem; }
+    .status-bar { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; background: rgba(255, 255, 255, 0.03); border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.85rem; }
+    .status-indicator { display: flex; align-items: center; gap: 0.5rem; }
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--danger); transition: background 0.3s; }
+    .status-dot.connected { background: var(--success); box-shadow: 0 0 10px rgba(0, 230, 118, 0.6); }
+    .btn-group { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem; }
+    button { width: 100%; padding: 0.9rem 1.5rem; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 0.5rem; border: none; }
+    .btn-primary { background: var(--primary); color: #0b0f19; }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); box-shadow: 0 0 20px rgba(0, 229, 255, 0.4); }
+    .btn-secondary { background: transparent; color: var(--text); border: 1px solid var(--border-color); }
+    .btn-secondary:hover:not(:disabled) { background: rgba(255, 255, 255, 0.05); border-color: var(--text-muted); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .log-panel { background: #0d1322; border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; font-family: var(--font-mono); font-size: 0.8rem; height: 120px; overflow-y: auto; color: var(--text-muted); }
+    .log-item { margin-bottom: 0.25rem; line-height: 1.4; }
+    .log-item.info { color: var(--primary); }
+    .log-item.success { color: var(--success); }
+    .log-item.error { color: var(--danger); }
+    .instructions { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border-color); font-size: 0.85rem; color: var(--text-muted); }
+    .instructions ol { padding-left: 1.25rem; margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.25rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <span class="badge">WEB BLUETOOTH GATT</span>
+      <h1>M5StickC Plus 時間同步</h1>
+      <p>透過瀏覽器藍牙一鍵校準硬體 BM8563 RTC</p>
+    </div>
+    <div class="clock-card">
+      <div class="label">本機精確時間 (Local Time)</div>
+      <div class="time" id="localTime">00:00:00</div>
+      <div class="date" id="localDate">2026/01/01 星期四</div>
+    </div>
+    <div class="status-bar">
+      <div class="status-indicator">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">未連線</span>
+      </div>
+      <div id="deviceName" style="color: var(--text-muted); font-size: 0.8rem;">裝置：無</div>
+    </div>
+    <div class="btn-group">
+      <button class="btn-primary" id="btnSync">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        一鍵配對並同步時間
+      </button>
+      <button class="btn-secondary" id="btnDisconnect" disabled>
+        斷開藍牙連線
+      </button>
+    </div>
+    <div class="log-panel" id="logPanel">
+      <div class="log-item">[系統] 準備就緒，請使用支援 Web Bluetooth 之瀏覽器 (Chrome / Edge)。</div>
+    </div>
+    <div class="instructions">
+      <strong>操作步驟與說明：</strong>
+      <ol>
+        <li>將 M5StickC Plus 開機並進入「待機畫面 (Standby Clock)」。</li>
+        <li>點擊上方「一鍵配對並同步時間」按鈕。</li>
+        <li>在系統彈出的藍牙清單中選擇「M5StickC-Fidget」並完成配對。</li>
+        <li>寫入成功後，機台將發出清脆提示音並閃爍綠燈，時間立即精準同步。</li>
+      </ol>
+    </div>
+  </div>
+  <script>
+    const SERVICE_UUID = "0000ffe0-0000-1000-8000-00805f9b34fb";
+    const CHARACTERISTIC_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb";
+    const WEEK_NAMES = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
+
+    let bluetoothDevice = null;
+    let timeCharacteristic = null;
+
+    const elTime = document.getElementById("localTime");
+    const elDate = document.getElementById("localDate");
+    const elStatusDot = document.getElementById("statusDot");
+    const elStatusText = document.getElementById("statusText");
+    const elDeviceName = document.getElementById("deviceName");
+    const btnSync = document.getElementById("btnSync");
+    const btnDisconnect = document.getElementById("btnDisconnect");
+    const logPanel = document.getElementById("logPanel");
+
+    function log(msg, type = "") {
+      const now = new Date();
+      const timeStr = now.toTimeString().split(" ")[0];
+      const div = document.createElement("div");
+      div.className = "log-item " + type;
+      div.textContent = '[' + timeStr + '] ' + msg;
+      logPanel.appendChild(div);
+      logPanel.scrollTop = logPanel.scrollHeight;
+    }
+
+    function updateLocalClock() {
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, "0");
+      const m = String(now.getMinutes()).padStart(2, "0");
+      const s = String(now.getSeconds()).padStart(2, "0");
+      elTime.textContent = h + ':' + m + ':' + s;
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const date = String(now.getDate()).padStart(2, "0");
+      const day = WEEK_NAMES[now.getDay()];
+      elDate.textContent = year + '/' + month + '/' + date + ' ' + day;
+    }
+    setInterval(updateLocalClock, 1000);
+    updateLocalClock();
+
+    function setConnectedUI(connected, name = "") {
+      if (connected) {
+        elStatusDot.classList.add("connected");
+        elStatusText.textContent = "已連線";
+        elDeviceName.textContent = '裝置：' + name;
+        btnDisconnect.disabled = false;
+      } else {
+        elStatusDot.classList.remove("connected");
+        elStatusText.textContent = "未連線";
+        elDeviceName.textContent = "裝置：無";
+        btnDisconnect.disabled = true;
+      }
+    }
+
+    async function connectAndSync() {
+      if (!navigator.bluetooth) {
+        log("您的瀏覽器不支援 Web Bluetooth API，請使用 Chrome、Edge 或 Opera。", "error");
+        alert("您的瀏覽器不支援 Web Bluetooth API！請使用 Chrome 或 Edge 瀏覽器。");
+        return;
+      }
+      try {
+        btnSync.disabled = true;
+        log("正在搜尋藍牙裝置「M5StickC-Fidget」...", "info");
+        bluetoothDevice = await navigator.bluetooth.requestDevice({
+          filters: [
+            { name: "M5StickC-Fidget" },
+            { services: [SERVICE_UUID] }
+          ],
+          optionalServices: [SERVICE_UUID]
+        });
+        bluetoothDevice.addEventListener("gattserverdisconnected", onDisconnected);
+        log('已選定裝置: ' + bluetoothDevice.name + '，正在連線 GATT 伺服器...', 'info');
+        const server = await bluetoothDevice.gatt.connect();
+        log("連線成功，正在尋找時間同步服務...", "info");
+        const service = await server.getPrimaryService(SERVICE_UUID);
+        log("正在讀取時間寫入特徵值...", "info");
+        timeCharacteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+        setConnectedUI(true, bluetoothDevice.name);
+        await timeCharacteristic.startNotifications();
+        timeCharacteristic.addEventListener("characteristicvaluechanged", handleCharacteristicValueChanged);
+        await sendTimeSync();
+      } catch (err) {
+        log('連線/同步失敗: ' + err.message, 'error');
+        setConnectedUI(false);
+      } finally {
+        btnSync.disabled = false;
+      }
+    }
+
+    async function sendTimeSync() {
+      if (!timeCharacteristic) return;
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+      const date = now.getDate();
+      const hours = now.getHours();
+      const minutes = now.getMinutes();
+      const seconds = now.getSeconds();
+      const weekDay = now.getDay();
+      const payload = new Uint8Array([
+        (year >> 8) & 0xFF,
+        year & 0xFF,
+        month,
+        date,
+        hours,
+        minutes,
+        seconds,
+        weekDay
+      ]);
+      log('正在寫入時間資料: ' + year + '/' + month + '/' + date + ' ' + hours + ':' + minutes + ':' + seconds + ' (星期' + weekDay + ')...', 'info');
+      await timeCharacteristic.writeValue(payload);
+      log("時間封包發送完畢，等待機台回傳 ACK 握手確認...", "info");
+    }
+
+    function handleCharacteristicValueChanged(event) {
+      const value = event.target.value;
+      if (value.byteLength >= 4) {
+        const ack = value.getUint8(0);
+        const h = String(value.getUint8(1)).padStart(2, "0");
+        const m = String(value.getUint8(2)).padStart(2, "0");
+        const s = String(value.getUint8(3)).padStart(2, "0");
+        if (ack === 0x01) {
+          log('機台 RTC 同步成功！機台時間已校準為 ' + h + ':' + m + ':' + s, 'success');
+          alert('🎉 恭喜！M5StickC Plus RTC 硬體時間已成功同步為 ' + h + ':' + m + ':' + s + '！');
+        }
+      }
+    }
+
+    function onDisconnected() {
+      log("BLE 藍牙連線已安全中斷。", "info");
+      setConnectedUI(false);
+      timeCharacteristic = null;
+      bluetoothDevice = null;
+    }
+
+    function disconnect() {
+      if (bluetoothDevice && bluetoothDevice.gatt.connected) {
+        log("使用者手動中斷藍牙連線...", "info");
+        bluetoothDevice.gatt.disconnect();
+      }
+    }
+
+    btnSync.addEventListener("click", connectAndSync);
+    btnDisconnect.addEventListener("click", disconnect);
+  </script>
+</body>
+</html>
