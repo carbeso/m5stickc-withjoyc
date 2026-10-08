@@ -20,7 +20,11 @@
 #include "scenes/SceneRPS.h"
 #include "scenes/Scene1A2B.h"
 #include "scenes/SceneStandby.h"
-#include "scenes/SceneSensorLab.h"
+#include "scenes/SceneLevel.h"
+#include "scenes/SceneGTracker.h"
+#include "scenes/SceneWifiScanner.h"
+#include "scenes/SceneBleScanner.h"
+#include "scenes/SceneLedStudio.h"
 #include "scenes/SceneSpectrum.h"
 #include "scenes/SceneSand.h"
 #include "scenes/SceneTetris.h"
@@ -42,7 +46,11 @@ SceneCoin sceneCoin;
 SceneRPS sceneRPS;
 Scene1A2B scene1A2B;
 SceneStandby sceneStandby;
-SceneSensorLab sceneSensorLab;
+SceneLevel sceneLevel;
+SceneGTracker sceneGTracker;
+SceneWifiScanner sceneWifiScanner;
+SceneBleScanner sceneBleScanner;
+SceneLedStudio sceneLedStudio;
 SceneSpectrum sceneSpectrum;
 SceneSand sceneSand;
 SceneTetris sceneTetris;
@@ -63,21 +71,25 @@ void switchScene(GameScene target) {
         standbyEntryTime = millis();
     }
     switch (target) {
-        case SCENE_MENU:        currentScene = &sceneMenu; break;
-        case SCENE_DICE:        currentScene = &sceneDice; break;
-        case SCENE_POKER:       currentScene = &scenePoker; break;
-        case SCENE_EIGHT_BALL:  currentScene = &sceneEightBall; break;
-        case SCENE_ROULETTE:    currentScene = &sceneRoulette; break;
-        case SCENE_SLOT:        currentScene = &sceneSlot; break;
-        case SCENE_COIN:        currentScene = &sceneCoin; break;
-        case SCENE_RPS:         currentScene = &sceneRPS; break;
-        case SCENE_1A2B:        currentScene = &scene1A2B; break;
-        case SCENE_STANDBY:     currentScene = &sceneStandby; break;
-        case SCENE_SENSOR_LAB:  currentScene = &sceneSensorLab; break;
-        case SCENE_SPECTRUM:    currentScene = &sceneSpectrum; break;
-        case SCENE_SAND:        currentScene = &sceneSand; break;
-        case SCENE_TETRIS:      currentScene = &sceneTetris; break;
-        default:                currentScene = &sceneMenu; break;
+        case SCENE_MENU:         currentScene = &sceneMenu; break;
+        case SCENE_DICE:         currentScene = &sceneDice; break;
+        case SCENE_POKER:        currentScene = &scenePoker; break;
+        case SCENE_EIGHT_BALL:   currentScene = &sceneEightBall; break;
+        case SCENE_ROULETTE:     currentScene = &sceneRoulette; break;
+        case SCENE_SLOT:         currentScene = &sceneSlot; break;
+        case SCENE_COIN:         currentScene = &sceneCoin; break;
+        case SCENE_RPS:          currentScene = &sceneRPS; break;
+        case SCENE_1A2B:         currentScene = &scene1A2B; break;
+        case SCENE_STANDBY:      currentScene = &sceneStandby; break;
+        case SCENE_LEVEL:        currentScene = &sceneLevel; break;
+        case SCENE_G_TRACKER:    currentScene = &sceneGTracker; break;
+        case SCENE_WIFI_SCANNER: currentScene = &sceneWifiScanner; break;
+        case SCENE_BLE_SCANNER:  currentScene = &sceneBleScanner; break;
+        case SCENE_LED_STUDIO:   currentScene = &sceneLedStudio; break;
+        case SCENE_SPECTRUM:     currentScene = &sceneSpectrum; break;
+        case SCENE_SAND:         currentScene = &sceneSand; break;
+        case SCENE_TETRIS:       currentScene = &sceneTetris; break;
+        default:                 currentScene = &sceneMenu; break;
     }
     currentScene->clearNextScene();
     input.clearEvents(); // 清除上一場景之殘留按鍵與手勢邊緣

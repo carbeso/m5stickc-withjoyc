@@ -38,9 +38,13 @@ enum GameScene {
     SCENE_RPS,              // 遊戲七：剪刀石頭布 (Rock Paper Scissors)
     SCENE_1A2B,             // 遊戲八：1A2B 益智猜數字
     SCENE_STANDBY,          // 應用一：待機畫面 (Matrix Rain / 數位時鐘)
-    SCENE_SENSOR_LAB,       // 應用二：感測器實驗室 (水平儀/G-Tracker/RF/LED)
-    SCENE_SPECTRUM,         // 應用三：頻譜分析儀 (聲音音訊/震動可視化)
-    SCENE_SAND,             // 應用四：重力感應流沙 (Gravity Sand Simulator)
+    SCENE_LEVEL,            // 應用二：三軸水平儀 (Bubble Level)
+    SCENE_G_TRACKER,        // 應用三：G-Force 衝擊追蹤 (G-Tracker)
+    SCENE_WIFI_SCANNER,     // 應用四：2.4G Wi-Fi 雷達探測 (Wi-Fi Scanner)
+    SCENE_BLE_SCANNER,      // 應用五：BLE 藍牙設備掃描 (BLE Scanner)
+    SCENE_LED_STUDIO,       // 應用六：RGB LED 調光工作室 (LED Studio)
+    SCENE_SPECTRUM,         // 應用七：頻譜分析儀 (聲音音訊/震動可視化)
+    SCENE_SAND,             // 應用八：重力感應流沙 (Gravity Sand Simulator)
     SCENE_TETRIS,           // 遊戲九：極簡掌上俄羅斯方塊 (Mini Tetris)
     SCENE_COUNT
 };
