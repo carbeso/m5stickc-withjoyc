@@ -20,6 +20,7 @@ public:
     virtual void exit() {}
     virtual void update(InputManager& input, AudioManager& audio, LedManager& led) = 0;
     virtual void draw() = 0;
+    virtual void exit() {}
     virtual GameScene getSceneId() const = 0;
 
     // 檢查是否要求切換至其他場景 (SCENE_COUNT 表示無切換)
