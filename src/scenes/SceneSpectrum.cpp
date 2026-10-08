@@ -303,11 +303,12 @@ void SceneSpectrum::computeFFT() {
 }
 
 void SceneSpectrum::update(InputManager& input, AudioManager& audio, LedManager& led) {
-    // 1. 安全退出返回主選單：Button B 長按 (或持續按住 400ms) 或 Button A 長按均可觸發
-    bool requestExit = input.btnBLongPressed || M5.BtnB.pressedFor(400) || M5.BtnA.pressedFor(600);
+    // 1. 安全退出返回主選單：專用 Button B 長按 (或持續按住 400ms) 觸發，避免 Button A 與選單進入鍵衝突
+    bool requestExit = input.btnBLongPressed || M5.BtnB.pressedFor(400);
     if (requestExit) {
         audio.playClick();
         teardownAudioI2S();
+        input.clearEvents();
         _nextScene = SCENE_MENU;
         return;
     }
