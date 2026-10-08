@@ -153,11 +153,6 @@ void SceneSpectrum::exit() {
     teardownAudioI2S();
 }
 
-void SceneSpectrum::exit() {
-    // 場景退出生命週期：安全卸載音訊 I2S 驅動並還原 MiniJoyC I2C 匯流排通訊
-    teardownAudioI2S();
-}
-
 void SceneSpectrum::init() {
     _viewMode = SPEC_VIEW_EQUALIZER;
     _themeIdx = 0;
