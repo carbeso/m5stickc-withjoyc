@@ -525,7 +525,7 @@ void SceneSensorLab::startBleScan() {
     stopWifiScan(); // Wi-Fi 與 BLE 互斥共用射頻
     delay(50);      // 射頻硬體狀態機轉換保護
 
-    if (!_bleInitialized) {
+    if (!_bleInitialized || !BLEDevice::getInitialized()) {
         BLEDevice::init("M5StickC-Lab");
         _bleInitialized = true;
     }
