@@ -44,9 +44,8 @@ public:
     void exit() override;
     GameScene getSceneId() const override { return SCENE_SENSOR_LAB; }
 
-    // BLE 設備發現與掃描完成回呼
+    // BLE 設備發現回呼
     void onBleDeviceFound(const char* name, const char* addr, int rssi);
-    static void onBleScanComplete(BLEScanResults results);
 
 private:
     void updateLevel(InputManager& input, AudioManager& audio);

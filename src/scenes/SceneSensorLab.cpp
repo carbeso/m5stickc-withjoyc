@@ -58,7 +58,6 @@ private:
 
 static LabBleCallbacks* s_pBleCallbacks = nullptr;
 static SceneSensorLab* s_currentLabInstance = nullptr;
-static portMUX_TYPE s_bleMux = portMUX_INITIALIZER_UNLOCKED;
 
 SceneSensorLab::SceneSensorLab()
     : _currentTab(TAB_LEVEL), _needsRedraw(true), _lastSampleTime(0),
@@ -473,9 +472,9 @@ void SceneSensorLab::drawRfScanner() {
 // BLE 藍牙掃描器邏輯與設備清單繪製
 // ----------------------------------------------------
 void SceneSensorLab::onBleDeviceFound(const char* name, const char* addr, int rssi) {
-    if (!addr) return;
+    if (!addr || !_isScanningBle) return;
+    if (_foundBleDevs >= MAX_BLE_DEVS) return;
 
-    portENTER_CRITICAL(&s_bleMux);
     for (uint8_t i = 0; i < _foundBleDevs; i++) {
         if (strncmp(_bleDevs[i].address, addr, sizeof(_bleDevs[i].address)) == 0) {
             _bleDevs[i].rssi = (int16_t)rssi;
@@ -483,41 +482,20 @@ void SceneSensorLab::onBleDeviceFound(const char* name, const char* addr, int rs
                 name && name[0] != '\0') {
                 snprintf(_bleDevs[i].name, sizeof(_bleDevs[i].name), "%s", name);
             }
-            portEXIT_CRITICAL(&s_bleMux);
             return;
         }
     }
 
-    if (_foundBleDevs < MAX_BLE_DEVS) {
-        snprintf(_bleDevs[_foundBleDevs].address, sizeof(_bleDevs[_foundBleDevs].address), "%s", addr);
+    uint8_t idx = _foundBleDevs;
+    if (idx < MAX_BLE_DEVS) {
+        snprintf(_bleDevs[idx].address, sizeof(_bleDevs[idx].address), "%s", addr);
         if (name && name[0] != '\0') {
-            snprintf(_bleDevs[_foundBleDevs].name, sizeof(_bleDevs[_foundBleDevs].name), "%s", name);
+            snprintf(_bleDevs[idx].name, sizeof(_bleDevs[idx].name), "%s", name);
         } else {
-            snprintf(_bleDevs[_foundBleDevs].name, sizeof(_bleDevs[_foundBleDevs].name), "Unknown");
+            snprintf(_bleDevs[idx].name, sizeof(_bleDevs[idx].name), "Unknown");
         }
-        _bleDevs[_foundBleDevs].rssi = (int16_t)rssi;
-        _foundBleDevs++;
-    }
-    portEXIT_CRITICAL(&s_bleMux);
-}
-
-void SceneSensorLab::onBleScanComplete(BLEScanResults results) {
-    if (s_currentLabInstance) {
-        s_currentLabInstance->_isScanningBle = false;
-
-        // 依 RSSI 降冪排序 (最強設備置頂)
-        portENTER_CRITICAL(&s_bleMux);
-        for (uint8_t i = 0; i < s_currentLabInstance->_foundBleDevs; i++) {
-            for (uint8_t j = i + 1; j < s_currentLabInstance->_foundBleDevs; j++) {
-                if (s_currentLabInstance->_bleDevs[j].rssi > s_currentLabInstance->_bleDevs[i].rssi) {
-                    BleScanResult tmp = s_currentLabInstance->_bleDevs[i];
-                    s_currentLabInstance->_bleDevs[i] = s_currentLabInstance->_bleDevs[j];
-                    s_currentLabInstance->_bleDevs[j] = tmp;
-                }
-            }
-        }
-        portEXIT_CRITICAL(&s_bleMux);
-        s_currentLabInstance->_needsRedraw = true;
+        _bleDevs[idx].rssi = (int16_t)rssi;
+        _foundBleDevs = idx + 1;
     }
 }
 
@@ -544,7 +522,7 @@ void SceneSensorLab::startBleScan() {
         pScan->setActiveScan(true);
         pScan->setInterval(100);
         pScan->setWindow(99);
-        pScan->start(3, SceneSensorLab::onBleScanComplete, false);
+        pScan->start(0, nullptr, false);
     }
 }
 
@@ -554,6 +532,17 @@ void SceneSensorLab::stopBleScan() {
         BLEScan* pScan = BLEDevice::getScan();
         if (pScan) {
             pScan->stop();
+        }
+
+        // 依 RSSI 降冪排序 (最強設備置頂，於主執行緒安全執行)
+        for (uint8_t i = 0; i < _foundBleDevs; i++) {
+            for (uint8_t j = i + 1; j < _foundBleDevs; j++) {
+                if (_bleDevs[j].rssi > _bleDevs[i].rssi) {
+                    BleScanResult tmp = _bleDevs[i];
+                    _bleDevs[i] = _bleDevs[j];
+                    _bleDevs[j] = tmp;
+                }
+            }
         }
     }
 }
@@ -568,8 +557,8 @@ void SceneSensorLab::updateBleScanner(InputManager& input, AudioManager& audio) 
 
     if (_isScanningBle) {
         _needsRedraw = true;
-        // 4 秒超時防呆保護
-        if (millis() - _bleScanStartTime >= 4000) {
+        // 3 秒掃描時間到達，於主執行緒安全呼叫 stopBleScan
+        if (millis() - _bleScanStartTime >= 3000) {
             stopBleScan();
             audio.playTick();
             _needsRedraw = true;
