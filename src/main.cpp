@@ -27,6 +27,7 @@
 #include "scenes/SceneSpectrum.h"
 #include "scenes/SceneSand.h"
 #include "scenes/SceneTetris.h"
+#include "scenes/SceneEightPuzzle.h"
 
 InputManager input;
 AudioManager audio;
@@ -52,6 +53,7 @@ SceneLedStudio sceneLedStudio;
 SceneSpectrum sceneSpectrum;
 SceneSand sceneSand;
 SceneTetris sceneTetris;
+SceneEightPuzzle sceneEightPuzzle;
 
 // 電源管理與待機保護常數
 static const uint32_t IDLE_TIMEOUT_MS = 90000;       // 90 秒無操作自動進入待機休眠
@@ -87,6 +89,7 @@ void switchScene(GameScene target) {
         case SCENE_SPECTRUM:     currentScene = &sceneSpectrum; break;
         case SCENE_SAND:         currentScene = &sceneSand; break;
         case SCENE_TETRIS:       currentScene = &sceneTetris; break;
+        case SCENE_EIGHT_PUZZLE: currentScene = &sceneEightPuzzle; break;
         default:                 currentScene = &sceneMenu; break;
     }
     currentScene->clearNextScene();
