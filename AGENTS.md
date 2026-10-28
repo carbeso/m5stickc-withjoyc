@@ -8,7 +8,7 @@
 - **硬體核心**：M5StickC Plus (ESP32-PICO-D4 @ 240MHz, 320KB RAM, 4MB Flash)
 - **擴充底座**：M5Stack Hat Mini JoyC (STM32F030F4P6, I2C `0x54`, SDA: GPIO 0, SCL: GPIO 26)
 - **螢幕與渲染**：1.14" ST7789v2 IPS LCD (135 × 240 直向)，全域雙緩衝畫布 `extern TFT_eSprite g_canvas;` (63.3KB 記憶體)
-- **現有 16 大場景清單**：
+- **現有 17 大場景清單**：
   1. `SCENE_DICE`: 多面骰子盒 (1d4 ~ 6d100)
   2. `SCENE_POKER`: 極簡幸運撲克 (52+2張，銷牌/單抽)
   3. `SCENE_EIGHT_BALL`: 神秘八號球 (維基百科 20 款解答)
@@ -25,6 +25,7 @@
   14. `SCENE_SPECTRUM`: 頻譜分析儀 (SPM1423 麥克風 64點 FFT / IMU 震動頻譜)
   15. `SCENE_SAND`: 重力感應流沙 (44x80 細胞自動機，體感甩動爆散)
   16. `SCENE_TETRIS`: 極簡掌上俄羅斯方塊 (10x20 經典方塊、踢牆、軟硬降)
+  17. `SCENE_EIGHT_PUZZLE`: 經典九宮格數字華容道 (3x3 滑塊拼圖、有解性保證、體感洗牌)
 - **核心子系統**：
   - `EntropyManager`: 多維實體熵源管理器 (硬體 RNG + IMU 雜訊 + AXP192 + 時間微擾)
   - `InputManager`: 雙軸搖桿死區、脈衝邊緣、體感甩動偵測狀態機

@@ -45,6 +45,7 @@ enum GameScene {
     SCENE_SPECTRUM,         // 應用六：頻譜分析儀 (聲音音訊/震動可視化)
     SCENE_SAND,             // 應用七：重力感應流沙 (Gravity Sand Simulator)
     SCENE_TETRIS,           // 遊戲九：極簡掌上俄羅斯方塊 (Mini Tetris)
+    SCENE_EIGHT_PUZZLE,     // 遊戲十：經典九宮格數字華容道 (8-Puzzle)
     SCENE_COUNT
 };
 
